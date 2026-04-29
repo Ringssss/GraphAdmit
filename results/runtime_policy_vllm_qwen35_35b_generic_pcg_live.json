@@ -1,0 +1,416 @@
+{
+  "runtime_policy": {
+    "kind": "residual_capture_exploration_policy",
+    "default_action": "cp",
+    "baseline_action": "cp",
+    "correctness_required": true,
+    "rules": [
+      {
+        "lo": 512,
+        "hi": 576,
+        "action": "ours_cp",
+        "n": 0,
+        "template_tokens": 576,
+        "reason": "residual exploration template; admit only for measurement"
+      },
+      {
+        "lo": 576,
+        "hi": 640,
+        "action": "ours_cp",
+        "n": 0,
+        "template_tokens": 640,
+        "reason": "residual exploration template; admit only for measurement"
+      },
+      {
+        "lo": 640,
+        "hi": 704,
+        "action": "ours_cp",
+        "n": 0,
+        "template_tokens": 704,
+        "reason": "residual exploration template; admit only for measurement"
+      },
+      {
+        "lo": 704,
+        "hi": 768,
+        "action": "ours_cp",
+        "n": 0,
+        "template_tokens": 768,
+        "reason": "residual exploration template; admit only for measurement"
+      },
+      {
+        "lo": 768,
+        "hi": 832,
+        "action": "ours_cp",
+        "n": 0,
+        "template_tokens": 832,
+        "reason": "residual exploration template; admit only for measurement"
+      },
+      {
+        "lo": 832,
+        "hi": 896,
+        "action": "ours_cp",
+        "n": 0,
+        "template_tokens": 896,
+        "reason": "residual exploration template; admit only for measurement"
+      },
+      {
+        "lo": 896,
+        "hi": 960,
+        "action": "ours_cp",
+        "n": 0,
+        "template_tokens": 960,
+        "reason": "residual exploration template; admit only for measurement"
+      },
+      {
+        "lo": 960,
+        "hi": 1024,
+        "action": "ours_cp",
+        "n": 0,
+        "template_tokens": 1024,
+        "reason": "residual exploration template; admit only for measurement"
+      },
+      {
+        "lo": 1024,
+        "hi": 1280,
+        "action": "ours_cp",
+        "n": 0,
+        "template_tokens": 1280,
+        "reason": "residual exploration template; admit only for measurement"
+      },
+      {
+        "lo": 1280,
+        "hi": 1536,
+        "action": "ours_cp",
+        "n": 0,
+        "template_tokens": 1536,
+        "reason": "residual exploration template; admit only for measurement"
+      },
+      {
+        "lo": 1536,
+        "hi": 1792,
+        "action": "ours_cp",
+        "n": 0,
+        "template_tokens": 1792,
+        "reason": "residual exploration template; admit only for measurement"
+      },
+      {
+        "lo": 1792,
+        "hi": 2048,
+        "action": "ours_cp",
+        "n": 0,
+        "template_tokens": 2048,
+        "reason": "residual exploration template; admit only for measurement"
+      },
+      {
+        "lo": 2048,
+        "hi": 2304,
+        "action": "ours_cp",
+        "n": 0,
+        "template_tokens": 2304,
+        "reason": "residual exploration template; admit only for measurement"
+      },
+      {
+        "lo": 2304,
+        "hi": 2560,
+        "action": "ours_cp",
+        "n": 0,
+        "template_tokens": 2560,
+        "reason": "residual exploration template; admit only for measurement"
+      },
+      {
+        "lo": 2560,
+        "hi": 2816,
+        "action": "ours_cp",
+        "n": 0,
+        "template_tokens": 2816,
+        "reason": "residual exploration template; admit only for measurement"
+      },
+      {
+        "lo": 2816,
+        "hi": 3072,
+        "action": "ours_cp",
+        "n": 0,
+        "template_tokens": 3072,
+        "reason": "residual exploration template; admit only for measurement"
+      },
+      {
+        "lo": 3072,
+        "hi": 3328,
+        "action": "ours_cp",
+        "n": 0,
+        "template_tokens": 3328,
+        "reason": "residual exploration template; admit only for measurement"
+      },
+      {
+        "lo": 3328,
+        "hi": 3584,
+        "action": "ours_cp",
+        "n": 0,
+        "template_tokens": 3584,
+        "reason": "residual exploration template; admit only for measurement"
+      },
+      {
+        "lo": 3584,
+        "hi": 3840,
+        "action": "ours_cp",
+        "n": 0,
+        "template_tokens": 3840,
+        "reason": "residual exploration template; admit only for measurement"
+      },
+      {
+        "lo": 3840,
+        "hi": 4096,
+        "action": "ours_cp",
+        "n": 0,
+        "template_tokens": 4096,
+        "reason": "residual exploration template; admit only for measurement"
+      }
+    ],
+    "fixed_metadata_arena_ranges": [
+      {
+        "lo": 512,
+        "hi": 576,
+        "template_tokens": 576,
+        "action": "ours_cp",
+        "n": 0
+      },
+      {
+        "lo": 576,
+        "hi": 640,
+        "template_tokens": 640,
+        "action": "ours_cp",
+        "n": 0
+      },
+      {
+        "lo": 640,
+        "hi": 704,
+        "template_tokens": 704,
+        "action": "ours_cp",
+        "n": 0
+      },
+      {
+        "lo": 704,
+        "hi": 768,
+        "template_tokens": 768,
+        "action": "ours_cp",
+        "n": 0
+      },
+      {
+        "lo": 768,
+        "hi": 832,
+        "template_tokens": 832,
+        "action": "ours_cp",
+        "n": 0
+      },
+      {
+        "lo": 832,
+        "hi": 896,
+        "template_tokens": 896,
+        "action": "ours_cp",
+        "n": 0
+      },
+      {
+        "lo": 896,
+        "hi": 960,
+        "template_tokens": 960,
+        "action": "ours_cp",
+        "n": 0
+      },
+      {
+        "lo": 960,
+        "hi": 1024,
+        "template_tokens": 1024,
+        "action": "ours_cp",
+        "n": 0
+      },
+      {
+        "lo": 1024,
+        "hi": 1280,
+        "template_tokens": 1280,
+        "action": "ours_cp",
+        "n": 0
+      },
+      {
+        "lo": 1280,
+        "hi": 1536,
+        "template_tokens": 1536,
+        "action": "ours_cp",
+        "n": 0
+      },
+      {
+        "lo": 1536,
+        "hi": 1792,
+        "template_tokens": 1792,
+        "action": "ours_cp",
+        "n": 0
+      },
+      {
+        "lo": 1792,
+        "hi": 2048,
+        "template_tokens": 2048,
+        "action": "ours_cp",
+        "n": 0
+      },
+      {
+        "lo": 2048,
+        "hi": 2304,
+        "template_tokens": 2304,
+        "action": "ours_cp",
+        "n": 0
+      },
+      {
+        "lo": 2304,
+        "hi": 2560,
+        "template_tokens": 2560,
+        "action": "ours_cp",
+        "n": 0
+      },
+      {
+        "lo": 2560,
+        "hi": 2816,
+        "template_tokens": 2816,
+        "action": "ours_cp",
+        "n": 0
+      },
+      {
+        "lo": 2816,
+        "hi": 3072,
+        "template_tokens": 3072,
+        "action": "ours_cp",
+        "n": 0
+      },
+      {
+        "lo": 3072,
+        "hi": 3328,
+        "template_tokens": 3328,
+        "action": "ours_cp",
+        "n": 0
+      },
+      {
+        "lo": 3328,
+        "hi": 3584,
+        "template_tokens": 3584,
+        "action": "ours_cp",
+        "n": 0
+      },
+      {
+        "lo": 3584,
+        "hi": 3840,
+        "template_tokens": 3840,
+        "action": "ours_cp",
+        "n": 0
+      },
+      {
+        "lo": 3840,
+        "hi": 4096,
+        "template_tokens": 4096,
+        "action": "ours_cp",
+        "n": 0
+      }
+    ],
+    "single_engine_graph_actions": [
+      "default",
+      "ours",
+      "cp",
+      "ours_cp"
+    ],
+    "single_engine_fallback_actions": [
+      "eager",
+      "compile",
+      "compiled",
+      "fallback",
+      "none"
+    ],
+    "single_engine_allow_multi_req_extra": true,
+    "single_engine_requires_fixed_metadata_arena": true,
+    "single_engine_max_extra_templates": 20,
+    "single_engine_min_rule_n": 0,
+    "single_engine_base_capture_size": 512,
+    "live_admission": {
+      "enabled": true,
+      "explore_until_min_samples": true,
+      "min_samples": 2,
+      "min_useful_rate": 0.67,
+      "min_saving_ms": 0.5,
+      "max_p95_regression_ms": 5.0
+    },
+    "residual_capture": {
+      "mode": "broad_exploration",
+      "template_buckets": [
+        4,
+        8,
+        12,
+        16,
+        20,
+        24,
+        28,
+        32,
+        48,
+        64,
+        80,
+        96,
+        112,
+        128,
+        144,
+        160,
+        176,
+        192,
+        208,
+        224,
+        240,
+        256,
+        288,
+        320,
+        352,
+        384,
+        416,
+        448,
+        480,
+        512,
+        576,
+        640,
+        704,
+        768,
+        832,
+        896,
+        960,
+        1024,
+        1280,
+        1536,
+        1792,
+        2048,
+        2304,
+        2560,
+        2816,
+        3072,
+        3328,
+        3584,
+        3840,
+        4096
+      ],
+      "extra_capture_sizes": [
+        576,
+        640,
+        704,
+        768,
+        832,
+        896,
+        960,
+        1024,
+        1280,
+        1536,
+        1792,
+        2048,
+        2304,
+        2560,
+        2816,
+        3072,
+        3328,
+        3584,
+        3840,
+        4096
+      ],
+      "active_buckets": null
+    }
+  }
+}

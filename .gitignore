@@ -1,0 +1,51 @@
+# Python/cache
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Local environments and editor metadata
+.venv/
+venv/
+env/
+.env
+.env.*
+.claude/
+.vscode/
+.idea/
+.DS_Store
+
+# Runtime/cache output
+dump.rdb
+*.log
+*.tmp
+*.out
+428.md
+
+# Machine-local model artifacts. Do not publish local model snapshots; README
+# commands expect users to provide their own /mnt/models paths.
+local_models/
+
+# External source trees are distributed as patches/instructions instead of
+# vendoring nested git repositories.
+external/FlowPrefill/
+
+# Results are ignored by default because raw profiles can be tens of MB each.
+# Curated summaries and small reproducibility artifacts are explicitly kept.
+results/*
+!results/qwen35_online_sglang_vllm_comparison_2026_04_29.md
+!results/vllm_qwen35_35b_16_live_compare.json
+!results/vllm_qwen35_35b_16_eager_ref.json
+!results/sglang_qwen35_35b_16_default_cg.json
+!results/sglang_qwen35_35b_16_piecewise.json
+!results/torch_naive_cudagraph_compositional_microbench_qwen35_context.json
+!results/runtime_policy_vllm_qwen35_35b_generic_pcg_live.json
+!results/live_obs_qwen35_35b_16.jsonl
+!results/graphadmit_sglang_pcg_comparison_2026_04_29.md
+!results/sglang_baseline_comparison_2026_04_29.md
+!results/residual_capture_e2e_microbench_2026_04_29.md
+!results/qwentrace_morspec_qwen_16_4096.json
+!results/qwentrace_morspec_qwen_64_4096.json

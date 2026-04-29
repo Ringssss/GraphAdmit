@@ -1,0 +1,192 @@
+{
+  "workload": "results/qwentrace_morspec_qwen_16_4096.json",
+  "model": "/mnt/models/Qwen3.5-35B-A3B",
+  "lengths": [
+    791,
+    756,
+    805,
+    750,
+    3023,
+    494,
+    409,
+    93,
+    83,
+    745,
+    2829,
+    886,
+    79,
+    859,
+    208,
+    752
+  ],
+  "results": [
+    {
+      "config": "SGLang piecewise CUDA Graph",
+      "init_s": 57.777181005105376,
+      "avg_ms": 286.58323228592053,
+      "p50_ms": 249.5318097062409,
+      "p95_ms": 702.2882284363732,
+      "p99_ms": 790.0802562711759,
+      "per_req": [
+        {
+          "tok": 791,
+          "ms": 102.00233198702335,
+          "output_token_ids": [
+            551
+          ],
+          "output_text": " he"
+        },
+        {
+          "tok": 756,
+          "ms": 100.56579671800137,
+          "output_token_ids": [
+            8618
+          ],
+          "output_text": " Each"
+        },
+        {
+          "tok": 805,
+          "ms": 100.98275635391474,
+          "output_token_ids": [
+            11
+          ],
+          "output_text": ","
+        },
+        {
+          "tok": 750,
+          "ms": 247.02789075672626,
+          "output_token_ids": [
+            49992
+          ],
+          "output_text": " repaired"
+        },
+        {
+          "tok": 3023,
+          "ms": 261.3975740969181,
+          "output_token_ids": [
+            1204
+          ],
+          "output_text": " how"
+        },
+        {
+          "tok": 494,
+          "ms": 254.19623777270317,
+          "output_token_ids": [
+            89668
+          ],
+          "output_text": " liters"
+        },
+        {
+          "tok": 409,
+          "ms": 250.52015716210008,
+          "output_token_ids": [
+            23107
+          ],
+          "output_text": " containers"
+        },
+        {
+          "tok": 93,
+          "ms": 665.7082168385386,
+          "output_token_ids": [
+            791
+          ],
+          "output_text": " per"
+        },
+        {
+          "tok": 83,
+          "ms": 248.5434622503817,
+          "output_token_ids": [
+            1024
+          ],
+          "output_text": " her"
+        },
+        {
+          "tok": 745,
+          "ms": 300.27760565280914,
+          "output_token_ids": [
+            15
+          ],
+          "output_text": "0"
+        },
+        {
+          "tok": 2829,
+          "ms": 268.69209902361035,
+          "output_token_ids": [
+            1487
+          ],
+          "output_text": "ily"
+        },
+        {
+          "tok": 886,
+          "ms": 812.0282632298768,
+          "output_token_ids": [
+            321
+          ],
+          "output_text": " and"
+        },
+        {
+          "tok": 79,
+          "ms": 243.00334975123405,
+          "output_token_ids": [
+            21900
+          ],
+          "output_text": " pens"
+        },
+        {
+          "tok": 859,
+          "ms": 250.73927314952016,
+          "output_token_ids": [
+            1467
+          ],
+          "output_text": " did"
+        },
+        {
+          "tok": 208,
+          "ms": 239.94264984503388,
+          "output_token_ids": [
+            13
+          ],
+          "output_text": "."
+        },
+        {
+          "tok": 752,
+          "ms": 239.7040519863367,
+          "output_token_ids": [
+            3575
+          ],
+          "output_text": " card"
+        }
+      ],
+      "engine_kwargs": {
+        "model_path": "/mnt/models/Qwen3.5-35B-A3B",
+        "tp_size": 4,
+        "context_length": 4096,
+        "mem_fraction_static": 0.72,
+        "disable_cuda_graph": false,
+        "log_level": "warning",
+        "piecewise_cuda_graph_max_tokens": 4096,
+        "disable_piecewise_cuda_graph": false
+      },
+      "same_outputs_vs_first": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "all_same_outputs_vs_first": true,
+      "speedup_vs_first": 1.0
+    }
+  ]
+}

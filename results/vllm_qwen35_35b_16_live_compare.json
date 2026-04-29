@@ -1,0 +1,1051 @@
+{
+  "partial": false,
+  "workload": "results/qwentrace_morspec_qwen_16_4096.json",
+  "model": "/mnt/models/Qwen3.5-35B-A3B",
+  "reference_config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE",
+  "planner": {
+    "mode": "hybrid",
+    "note": "vLLM default small graphs plus DP-selected long graphs",
+    "bucket_sizes": [
+      1,
+      2,
+      4,
+      8,
+      16,
+      24,
+      32,
+      40,
+      48,
+      56,
+      64,
+      72,
+      80,
+      88,
+      96,
+      104,
+      112,
+      120,
+      128,
+      136,
+      144,
+      152,
+      160,
+      168,
+      176,
+      184,
+      192,
+      200,
+      208,
+      216,
+      224,
+      232,
+      240,
+      248,
+      256,
+      272,
+      288,
+      304,
+      320,
+      336,
+      352,
+      368,
+      384,
+      400,
+      416,
+      432,
+      448,
+      464,
+      480,
+      496,
+      512,
+      576,
+      640,
+      704,
+      768,
+      832,
+      896,
+      960,
+      1024,
+      1280,
+      1536,
+      1792,
+      2048,
+      2304,
+      2560,
+      2816,
+      3072,
+      3328,
+      3584,
+      3840,
+      4096
+    ],
+    "dp_candidate_bucket_sizes": [
+      80,
+      88,
+      96,
+      208,
+      416,
+      496,
+      768,
+      832,
+      896,
+      2880,
+      3072
+    ],
+    "explicit_extra_capture_sizes": [],
+    "max_extra_capture_size": 0,
+    "max_num_seqs": 8,
+    "template_scheduler": false,
+    "template_scheduler_max_wait_ms": 0.0,
+    "template_scheduler_max_scan": 16,
+    "batch_mode": false,
+    "allow_batch_extra_capture": false,
+    "fixed_metadata_arena": false,
+    "fixed_metadata_arena_max_reqs": 0,
+    "full_key_collapse": false,
+    "runtime_capture_bucket_sizes": [
+      1,
+      2,
+      4,
+      8,
+      16,
+      24,
+      32,
+      40,
+      48,
+      56,
+      64,
+      72,
+      80,
+      88,
+      96,
+      104,
+      112,
+      120,
+      128,
+      136,
+      144,
+      152,
+      160,
+      168,
+      176,
+      184,
+      192,
+      200,
+      208,
+      216,
+      224,
+      232,
+      240,
+      248,
+      256,
+      272,
+      288,
+      304,
+      320,
+      336,
+      352,
+      368,
+      384,
+      400,
+      416,
+      432,
+      448,
+      464,
+      480,
+      496,
+      512,
+      576,
+      640,
+      704,
+      768,
+      832,
+      896,
+      960,
+      1024,
+      1280,
+      1536,
+      1792,
+      2048,
+      2304,
+      2560,
+      2816,
+      3072,
+      3328,
+      3584,
+      3840,
+      4096
+    ],
+    "runtime_capture_note": "vLLM default small graphs plus DP-selected long graphs",
+    "dp_expected_hit_rate": 1.0,
+    "dp_expected_padding_waste_pct": 2.1783035199076743,
+    "dp_expected_fallback_count": 0,
+    "dp_total_graph_memory_mb": 218.64000000000001,
+    "dp_total_warmup_time_s": 0.6600000000000001
+  },
+  "workload_stats": {
+    "n": 16,
+    "p50": 751.0,
+    "p95": 2877.5,
+    "gt512": 10,
+    "gt2048": 2
+  },
+  "lengths": [
+    791,
+    756,
+    805,
+    750,
+    3023,
+    494,
+    409,
+    93,
+    83,
+    745,
+    2829,
+    886,
+    79,
+    859,
+    208,
+    752
+  ],
+  "results": [
+    {
+      "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE",
+      "init_s": 82.65452857827768,
+      "avg_ms": 254.59163545747288,
+      "p50_ms": 115.62914261594415,
+      "p95_ms": 759.8057718714699,
+      "p99_ms": 811.9872103212401,
+      "batch_total_ms": null,
+      "per_req": [
+        {
+          "tok": 791,
+          "ms": 99.60101172327995,
+          "output_token_ids": [
+            551
+          ],
+          "output_text": " he",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 756,
+          "ms": 116.24903790652752,
+          "output_token_ids": [
+            8618
+          ],
+          "output_text": " Each",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 805,
+          "ms": 107.52810630947351,
+          "output_token_ids": [
+            11
+          ],
+          "output_text": ",",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 750,
+          "ms": 108.07021986693144,
+          "output_token_ids": [
+            49992
+          ],
+          "output_text": " repaired",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 3023,
+          "ms": 137.16501090675592,
+          "output_token_ids": [
+            1204
+          ],
+          "output_text": " how",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 494,
+          "ms": 371.7685230076313,
+          "output_token_ids": [
+            89668
+          ],
+          "output_text": " liters",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 409,
+          "ms": 733.7453328073025,
+          "output_token_ids": [
+            23107
+          ],
+          "output_text": " containers",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 93,
+          "ms": 825.0325699336827,
+          "output_token_ids": [
+            791
+          ],
+          "output_text": " per",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 83,
+          "ms": 113.2346042431891,
+          "output_token_ids": [
+            1024
+          ],
+          "output_text": " her",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 745,
+          "ms": 115.00924732536077,
+          "output_token_ids": [
+            15
+          ],
+          "output_text": "0",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 2829,
+          "ms": 140.80948708578944,
+          "output_token_ids": [
+            1487
+          ],
+          "output_text": "ily",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 886,
+          "ms": 738.0635058507323,
+          "output_token_ids": [
+            321
+          ],
+          "output_text": " and",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 79,
+          "ms": 114.50089607387781,
+          "output_token_ids": [
+            21900
+          ],
+          "output_text": " pens",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 859,
+          "ms": 112.45113611221313,
+          "output_token_ids": [
+            1467
+          ],
+          "output_text": " did",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 208,
+          "ms": 133.6982469074428,
+          "output_token_ids": [
+            13
+          ],
+          "output_text": ".",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 752,
+          "ms": 106.53923125937581,
+          "output_token_ids": [
+            3575
+          ],
+          "output_text": " card",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        }
+      ],
+      "chunked": true,
+      "eager": false,
+      "capture_sizes": null,
+      "runtime_policy": null,
+      "runtime_base_capture_size": null,
+      "cudagraph_mode": "FULL_AND_PIECEWISE",
+      "max_num_seqs": 8,
+      "template_scheduler": false,
+      "template_scheduler_max_wait_ms": 0.0,
+      "template_scheduler_max_scan": 16,
+      "batch_mode": false,
+      "fixed_metadata_arena": false,
+      "fixed_metadata_arena_max_reqs": 0,
+      "fixed_metadata_arena_min_tokens": 0,
+      "fixed_metadata_arena_max_tokens": 0,
+      "full_key_collapse": false,
+      "live_admission": false,
+      "live_observations": null,
+      "live_explore": false,
+      "live_min_samples": 0,
+      "live_min_useful_rate": 0.0,
+      "live_min_saving_ms": 0.0,
+      "live_max_p95_regression_ms": null,
+      "live_shadow_observations_written": 0,
+      "moe_capacity_buckets": null,
+      "dispatcher_profile": "results/vllm_qwen35_35b_16_live_compare_4__vllm_graph_max512_cp_full_and_piecewise_dispatcher.jsonl",
+      "runner_profile": "results/vllm_qwen35_35b_16_live_compare_4__vllm_graph_max512_cp_full_and_piecewise_runner.jsonl",
+      "attention_profile": "results/vllm_qwen35_35b_16_live_compare_4__vllm_graph_max512_cp_full_and_piecewise_attn.jsonl",
+      "moe_profile": "results/vllm_qwen35_35b_16_live_compare_4__vllm_graph_max512_cp_full_and_piecewise_moe.jsonl",
+      "scheduler_profile": "results/vllm_qwen35_35b_16_live_compare_4__vllm_graph_max512_cp_full_and_piecewise_scheduler.jsonl",
+      "speedup_vs_first": 1.0,
+      "ranges": {
+        "(0,512]": {
+          "n": 6,
+          "avg_ms": 381.996695495521,
+          "p95_ms": 802.2107606520876
+        },
+        "(512,1024]": {
+          "n": 8,
+          "avg_ms": 187.9389370442368,
+          "p95_ms": 520.4284420702603
+        },
+        "(2048,4096]": {
+          "n": 2,
+          "avg_ms": 138.98724899627268,
+          "p95_ms": 140.62726327683777
+        }
+      },
+      "same_outputs_vs_first": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "all_same_outputs_vs_first": true,
+      "reference_config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE",
+      "same_outputs_vs_reference": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "all_same_outputs_vs_reference": true
+    },
+    {
+      "config": "5. Ours hybrid max4096 CP FULL_AND_PIECEWISE",
+      "init_s": 81.95949936332181,
+      "avg_ms": 64.25452159601264,
+      "p50_ms": 39.8200077470392,
+      "p95_ms": 143.41478038113564,
+      "p99_ms": 351.5668943291529,
+      "batch_total_ms": null,
+      "per_req": [
+        {
+          "tok": 791,
+          "ms": 39.8120847530663,
+          "output_token_ids": [
+            551
+          ],
+          "output_text": " he"
+        },
+        {
+          "tok": 756,
+          "ms": 39.22400902956724,
+          "output_token_ids": [
+            8618
+          ],
+          "output_text": " Each"
+        },
+        {
+          "tok": 805,
+          "ms": 39.827930741012096,
+          "output_token_ids": [
+            11
+          ],
+          "output_text": ","
+        },
+        {
+          "tok": 750,
+          "ms": 38.50387176498771,
+          "output_token_ids": [
+            49992
+          ],
+          "output_text": " repaired"
+        },
+        {
+          "tok": 3023,
+          "ms": 56.684732902795076,
+          "output_token_ids": [
+            1204
+          ],
+          "output_text": " how"
+        },
+        {
+          "tok": 494,
+          "ms": 43.055246118456125,
+          "output_token_ids": [
+            89668
+          ],
+          "output_text": " liters"
+        },
+        {
+          "tok": 409,
+          "ms": 40.17348121851683,
+          "output_token_ids": [
+            23107
+          ],
+          "output_text": " containers"
+        },
+        {
+          "tok": 93,
+          "ms": 37.886685226112604,
+          "output_token_ids": [
+            310
+          ],
+          "output_text": " to"
+        },
+        {
+          "tok": 83,
+          "ms": 37.58251527324319,
+          "output_token_ids": [
+            1024
+          ],
+          "output_text": " her"
+        },
+        {
+          "tok": 745,
+          "ms": 42.677212972193956,
+          "output_token_ids": [
+            15
+          ],
+          "output_text": "0"
+        },
+        {
+          "tok": 2829,
+          "ms": 52.85766674205661,
+          "output_token_ids": [
+            1487
+          ],
+          "output_text": "ily"
+        },
+        {
+          "tok": 886,
+          "ms": 403.60492281615734,
+          "output_token_ids": [
+            321
+          ],
+          "output_text": " and"
+        },
+        {
+          "tok": 79,
+          "ms": 37.37691091373563,
+          "output_token_ids": [
+            21900
+          ],
+          "output_text": " pens"
+        },
+        {
+          "tok": 859,
+          "ms": 41.90889233723283,
+          "output_token_ids": [
+            1467
+          ],
+          "output_text": " did"
+        },
+        {
+          "tok": 208,
+          "ms": 38.63366600126028,
+          "output_token_ids": [
+            13
+          ],
+          "output_text": "."
+        },
+        {
+          "tok": 752,
+          "ms": 38.26251672580838,
+          "output_token_ids": [
+            3575
+          ],
+          "output_text": " card"
+        }
+      ],
+      "chunked": true,
+      "eager": false,
+      "capture_sizes": [
+        1,
+        2,
+        4,
+        8,
+        16,
+        24,
+        32,
+        40,
+        48,
+        56,
+        64,
+        72,
+        80,
+        88,
+        96,
+        104,
+        112,
+        120,
+        128,
+        136,
+        144,
+        152,
+        160,
+        168,
+        176,
+        184,
+        192,
+        200,
+        208,
+        216,
+        224,
+        232,
+        240,
+        248,
+        256,
+        272,
+        288,
+        304,
+        320,
+        336,
+        352,
+        368,
+        384,
+        400,
+        416,
+        432,
+        448,
+        464,
+        480,
+        496,
+        512,
+        576,
+        640,
+        704,
+        768,
+        832,
+        896,
+        960,
+        1024,
+        1280,
+        1536,
+        1792,
+        2048,
+        2304,
+        2560,
+        2816,
+        3072,
+        3328,
+        3584,
+        3840,
+        4096
+      ],
+      "runtime_policy": null,
+      "runtime_base_capture_size": null,
+      "cudagraph_mode": "FULL_AND_PIECEWISE",
+      "max_num_seqs": 8,
+      "template_scheduler": false,
+      "template_scheduler_max_wait_ms": 0.0,
+      "template_scheduler_max_scan": 16,
+      "batch_mode": false,
+      "fixed_metadata_arena": false,
+      "fixed_metadata_arena_max_reqs": 0,
+      "fixed_metadata_arena_min_tokens": 0,
+      "fixed_metadata_arena_max_tokens": 0,
+      "full_key_collapse": false,
+      "live_admission": false,
+      "live_observations": null,
+      "live_explore": false,
+      "live_min_samples": 0,
+      "live_min_useful_rate": 0.0,
+      "live_min_saving_ms": 0.0,
+      "live_max_p95_regression_ms": null,
+      "live_shadow_observations_written": 0,
+      "moe_capacity_buckets": null,
+      "dispatcher_profile": "results/vllm_qwen35_35b_16_live_compare_5__ours_hybrid_max4096_cp_full_and_piecewise_dispatcher.jsonl",
+      "runner_profile": "results/vllm_qwen35_35b_16_live_compare_5__ours_hybrid_max4096_cp_full_and_piecewise_runner.jsonl",
+      "attention_profile": "results/vllm_qwen35_35b_16_live_compare_5__ours_hybrid_max4096_cp_full_and_piecewise_attn.jsonl",
+      "moe_profile": "results/vllm_qwen35_35b_16_live_compare_5__ours_hybrid_max4096_cp_full_and_piecewise_moe.jsonl",
+      "scheduler_profile": "results/vllm_qwen35_35b_16_live_compare_5__ours_hybrid_max4096_cp_full_and_piecewise_scheduler.jsonl",
+      "speedup_vs_first": 3.962236884404284,
+      "ranges": {
+        "(0,512]": {
+          "n": 6,
+          "avg_ms": 39.118084125220776,
+          "p95_ms": 42.3348048934713
+        },
+        "(512,1024]": {
+          "n": 8,
+          "avg_ms": 85.47768014250323,
+          "p95_ms": 277.28022437076993
+        },
+        "(2048,4096]": {
+          "n": 2,
+          "avg_ms": 54.77119982242584,
+          "p95_ms": 56.49337959475815
+        }
+      },
+      "same_outputs_vs_first": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "all_same_outputs_vs_first": false,
+      "reference_config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE",
+      "same_outputs_vs_reference": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "all_same_outputs_vs_reference": false
+    },
+    {
+      "config": "7. Single-engine runtime hybrid max4096 CP",
+      "init_s": 82.75785772269592,
+      "avg_ms": 42.82354691531509,
+      "p50_ms": 40.24552903138101,
+      "p95_ms": 56.67930457275361,
+      "p99_ms": 60.02451067324728,
+      "batch_total_ms": null,
+      "per_req": [
+        {
+          "tok": 791,
+          "ms": 40.1910780929029,
+          "output_token_ids": [
+            551
+          ],
+          "output_text": " he"
+        },
+        {
+          "tok": 756,
+          "ms": 38.898582104593515,
+          "output_token_ids": [
+            8618
+          ],
+          "output_text": " Each"
+        },
+        {
+          "tok": 805,
+          "ms": 45.69056211039424,
+          "output_token_ids": [
+            11
+          ],
+          "output_text": ","
+        },
+        {
+          "tok": 750,
+          "ms": 38.41666365042329,
+          "output_token_ids": [
+            49992
+          ],
+          "output_text": " repaired"
+        },
+        {
+          "tok": 3023,
+          "ms": 60.860812198370695,
+          "output_token_ids": [
+            1204
+          ],
+          "output_text": " how"
+        },
+        {
+          "tok": 494,
+          "ms": 42.65611292794347,
+          "output_token_ids": [
+            89668
+          ],
+          "output_text": " liters"
+        },
+        {
+          "tok": 409,
+          "ms": 40.29997996985912,
+          "output_token_ids": [
+            23107
+          ],
+          "output_text": " containers"
+        },
+        {
+          "tok": 93,
+          "ms": 38.66058588027954,
+          "output_token_ids": [
+            310
+          ],
+          "output_text": " to"
+        },
+        {
+          "tok": 83,
+          "ms": 37.634497974067926,
+          "output_token_ids": [
+            1024
+          ],
+          "output_text": " her"
+        },
+        {
+          "tok": 745,
+          "ms": 41.89360700547695,
+          "output_token_ids": [
+            15
+          ],
+          "output_text": "0"
+        },
+        {
+          "tok": 2829,
+          "ms": 55.28546869754791,
+          "output_token_ids": [
+            1487
+          ],
+          "output_text": "ily"
+        },
+        {
+          "tok": 886,
+          "ms": 48.55262627825141,
+          "output_token_ids": [
+            321
+          ],
+          "output_text": " and"
+        },
+        {
+          "tok": 79,
+          "ms": 36.12023266032338,
+          "output_token_ids": [
+            21900
+          ],
+          "output_text": " pens"
+        },
+        {
+          "tok": 859,
+          "ms": 42.489742394536734,
+          "output_token_ids": [
+            1467
+          ],
+          "output_text": " did"
+        },
+        {
+          "tok": 208,
+          "ms": 38.29189669340849,
+          "output_token_ids": [
+            13
+          ],
+          "output_text": "."
+        },
+        {
+          "tok": 752,
+          "ms": 39.23430200666189,
+          "output_token_ids": [
+            3575
+          ],
+          "output_text": " card"
+        }
+      ],
+      "chunked": true,
+      "eager": false,
+      "capture_sizes": [
+        1,
+        2,
+        4,
+        8,
+        16,
+        24,
+        32,
+        40,
+        48,
+        56,
+        64,
+        72,
+        80,
+        88,
+        96,
+        104,
+        112,
+        120,
+        128,
+        136,
+        144,
+        152,
+        160,
+        168,
+        176,
+        184,
+        192,
+        200,
+        208,
+        216,
+        224,
+        232,
+        240,
+        248,
+        256,
+        272,
+        288,
+        304,
+        320,
+        336,
+        352,
+        368,
+        384,
+        400,
+        416,
+        432,
+        448,
+        464,
+        480,
+        496,
+        512,
+        576,
+        640,
+        704,
+        768,
+        832,
+        896,
+        960,
+        1024,
+        1280,
+        1536,
+        1792,
+        2048,
+        2304,
+        2560,
+        2816,
+        3072,
+        3328,
+        3584,
+        3840,
+        4096
+      ],
+      "runtime_policy": "results/runtime_policy_vllm_qwen35_35b_generic_pcg_live.json",
+      "runtime_base_capture_size": 512,
+      "cudagraph_mode": "FULL_AND_PIECEWISE",
+      "max_num_seqs": 8,
+      "template_scheduler": false,
+      "template_scheduler_max_wait_ms": 0.0,
+      "template_scheduler_max_scan": 16,
+      "batch_mode": false,
+      "fixed_metadata_arena": false,
+      "fixed_metadata_arena_max_reqs": 0,
+      "fixed_metadata_arena_min_tokens": 0,
+      "fixed_metadata_arena_max_tokens": 0,
+      "full_key_collapse": false,
+      "live_admission": true,
+      "live_observations": "results/live_obs_qwen35_35b_16.jsonl",
+      "live_explore": true,
+      "live_min_samples": 2,
+      "live_min_useful_rate": 0.67,
+      "live_min_saving_ms": 0.5,
+      "live_max_p95_regression_ms": 5.0,
+      "live_shadow_observations_written": 10,
+      "moe_capacity_buckets": null,
+      "dispatcher_profile": "results/vllm_qwen35_35b_16_live_compare_7__single_engine_runtime_hybrid_max4096_cp_dispatcher.jsonl",
+      "runner_profile": "results/vllm_qwen35_35b_16_live_compare_7__single_engine_runtime_hybrid_max4096_cp_runner.jsonl",
+      "attention_profile": "results/vllm_qwen35_35b_16_live_compare_7__single_engine_runtime_hybrid_max4096_cp_attn.jsonl",
+      "moe_profile": "results/vllm_qwen35_35b_16_live_compare_7__single_engine_runtime_hybrid_max4096_cp_moe.jsonl",
+      "scheduler_profile": "results/vllm_qwen35_35b_16_live_compare_7__single_engine_runtime_hybrid_max4096_cp_scheduler.jsonl",
+      "speedup_vs_first": 5.9451319144800365,
+      "ranges": {
+        "(0,512]": {
+          "n": 6,
+          "avg_ms": 38.94388435098032,
+          "p95_ms": 42.06707968842238
+        },
+        "(512,1024]": {
+          "n": 8,
+          "avg_ms": 41.920895455405116,
+          "p95_ms": 47.5509038195014
+        },
+        "(2048,4096]": {
+          "n": 2,
+          "avg_ms": 58.073140447959304,
+          "p95_ms": 60.582045023329556
+        }
+      },
+      "same_outputs_vs_first": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "all_same_outputs_vs_first": false,
+      "reference_config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE",
+      "same_outputs_vs_reference": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "all_same_outputs_vs_reference": false
+    }
+  ]
+}

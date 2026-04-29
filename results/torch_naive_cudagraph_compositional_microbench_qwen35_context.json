@@ -1,0 +1,161 @@
+{
+  "workload_lengths": [
+    55,
+    41,
+    55,
+    41,
+    60,
+    36,
+    55,
+    41,
+    80,
+    16,
+    55,
+    41,
+    90,
+    6,
+    55,
+    41,
+    64,
+    32,
+    55,
+    41
+  ],
+  "model": {
+    "type": "TokenMLP",
+    "hidden": 2048,
+    "inter": 8192,
+    "layers": 4,
+    "dtype": "bfloat16"
+  },
+  "templates": {
+    "exact_sizes": [
+      32,
+      64
+    ],
+    "pad_sizes": [
+      32,
+      64,
+      96,
+      128
+    ],
+    "pack_sizes": [
+      64,
+      96,
+      128
+    ],
+    "tile_size": 32,
+    "capture_ms_by_capacity": {
+      "128": 29.726723674684763,
+      "96": 1.1805719695985317,
+      "64": 2.5246008299291134,
+      "32": 0.9590592235326767
+    }
+  },
+  "repeat": 30,
+  "plans": [
+    {
+      "name": "eager_dynamic",
+      "total_ms": 9.296998893842101,
+      "avg_ms": 0.46484994469210505,
+      "speedup_vs_eager": 1.0,
+      "graph_replays": 0,
+      "eager_fallbacks": 20,
+      "capture_count": 0,
+      "capture_ms": 0.0,
+      "padding_tokens": 0,
+      "useful_tokens": 960,
+      "padding_waste_pct": 0.0,
+      "max_abs_error": 0.0,
+      "correct": true,
+      "notes": "Dynamic eager execution; no graph coverage."
+    },
+    {
+      "name": "exact_only_graph_32_64",
+      "total_ms": 8.428583930556973,
+      "avg_ms": 0.42142919652784866,
+      "speedup_vs_eager": 1.1030321309534308,
+      "graph_replays": 2,
+      "eager_fallbacks": 18,
+      "capture_count": 2,
+      "capture_ms": 3.48366005346179,
+      "padding_tokens": 0,
+      "useful_tokens": 960,
+      "padding_waste_pct": 0.0,
+      "max_abs_error": 0.0,
+      "correct": true,
+      "notes": "Simulates exact-shape CG: 55 and 41 miss and fall back."
+    },
+    {
+      "name": "pad_to_next_template",
+      "total_ms": 4.9436849386741715,
+      "avg_ms": 0.24718424693370858,
+      "speedup_vs_eager": 1.8805807831951824,
+      "graph_replays": 20,
+      "eager_fallbacks": 0,
+      "capture_count": 4,
+      "capture_ms": 34.390955697745085,
+      "padding_tokens": 288,
+      "useful_tokens": 960,
+      "padding_waste_pct": 23.076923076923077,
+      "max_abs_error": 0.03125,
+      "correct": true,
+      "notes": "Covers all sizes via static capacity; pays padding compute."
+    },
+    {
+      "name": "tile_32_composition",
+      "total_ms": 9.536600656186542,
+      "avg_ms": 0.47683003280932706,
+      "speedup_vs_eager": 0.9748755588094163,
+      "graph_replays": 39,
+      "eager_fallbacks": 0,
+      "capture_count": 1,
+      "capture_ms": 0.9590592235326767,
+      "padding_tokens": 288,
+      "useful_tokens": 960,
+      "padding_waste_pct": 23.076923076923077,
+      "max_abs_error": 0.03125,
+      "correct": true,
+      "notes": "Covers arbitrary token counts with one template; launch count grows with ceil(n/tile)."
+    },
+    {
+      "name": "pack_adjacent_requests",
+      "total_ms": 2.6081499798844257,
+      "avg_ms": 0.13040749899422127,
+      "speedup_vs_eager": 3.5645951979548647,
+      "graph_replays": 10,
+      "eager_fallbacks": 0,
+      "capture_count": 3,
+      "capture_ms": 33.43189647421241,
+      "padding_tokens": 0,
+      "useful_tokens": 960,
+      "padding_waste_pct": 0.0,
+      "max_abs_error": 0.03125,
+      "correct": true,
+      "notes": "Packs pairs such as 55+41 into one 96-token graph, reducing launches and padding."
+    },
+    {
+      "name": "residual_learn_then_replay",
+      "total_ms": 5.166241402427356,
+      "avg_ms": 0.2583120701213678,
+      "speedup_vs_eager": 1.7995672616989813,
+      "graph_replays": 19,
+      "eager_fallbacks": 0,
+      "capture_count": 10,
+      "capture_ms": 12.928235810250044,
+      "padding_tokens": 851,
+      "useful_tokens": 960,
+      "padding_waste_pct": 46.9906129210381,
+      "max_abs_error": 0.03125,
+      "correct": true,
+      "notes": "Starts from 32/64, explores repeated misses, then replays admitted residual shapes."
+    }
+  ],
+  "interpretation": [
+    "Exact-only graph replay loses coverage on dynamic residual sizes.",
+    "Padding recovers coverage when capacity waste is moderate.",
+    "Tiling is universal but can lose the sweet spot through extra graph launches.",
+    "Adjacent-request packing is the compositional win: 55+41 can share a 96-token graph instead of two misses or two padded launches.",
+    "Residual learning matters when misses repeat; it should be evaluated against capture/warmup amortization, not just raw hit rate."
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "patch": "patches/vllm_staticity.patch",
+  "base_repository": "https://github.com/HSIEHCHIACHI/FlowPrefill.git",
+  "base_commit": "5d32324",
+  "source_root": "external/FlowPrefill",
+  "patch_lines": 10955,
+  "notes": [
+    "This patch was exported from the dirty local FlowPrefill tree after GraphAdmit changes were synchronized from the installed vLLM package.",
+    "Apply it to a compatible clean FlowPrefill/vLLM checkout. On the already patched local tree, git apply --reverse --check patches/vllm_staticity.patch succeeds."
+  ],
+  "files": [
+    {
+      "path": "vllm/v1/cudagraph_dispatcher.py",
+      "status": "modified",
+      "role": "CUDA graph dispatch, runtime policy hooks, and replay metadata"
+    },
+    {
+      "path": "vllm/v1/core/sched/scheduler.py",
+      "status": "modified",
+      "role": "template-aware scheduling and staticity hints"
+    },
+    {
+      "path": "vllm/v1/worker/gpu_model_runner.py",
+      "status": "modified",
+      "role": "runtime admission, observation export, and graph/fallback control"
+    },
+    {
+      "path": "vllm/model_executor/layers/fused_moe/routed_experts_capturer.py",
+      "status": "added",
+      "role": "routed expert metadata capture support"
+    }
+  ]
+}

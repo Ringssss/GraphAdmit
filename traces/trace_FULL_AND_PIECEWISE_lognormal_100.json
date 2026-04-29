@@ -1,0 +1,13 @@
+{
+  "config": {
+    "model": "/mnt/models/Meta-Llama-3-8B-Instruct",
+    "cudagraph_mode": "FULL_AND_PIECEWISE",
+    "num_prompts": 100,
+    "distribution": "lognormal",
+    "tp_size": 1,
+    "max_model_len": 4096,
+    "elapsed_s": 0.47045204089954495
+  },
+  "dispatch_records": [],
+  "graph_events": []
+}

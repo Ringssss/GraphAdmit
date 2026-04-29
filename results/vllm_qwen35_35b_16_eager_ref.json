@@ -1,0 +1,409 @@
+{
+  "partial": false,
+  "workload": "results/qwentrace_morspec_qwen_16_4096.json",
+  "model": "/mnt/models/Qwen3.5-35B-A3B",
+  "reference_config": "1. Eager no-CP",
+  "planner": {
+    "mode": "hybrid",
+    "note": "vLLM default small graphs plus DP-selected long graphs",
+    "bucket_sizes": [
+      1,
+      2,
+      4,
+      8,
+      16,
+      24,
+      32,
+      40,
+      48,
+      56,
+      64,
+      72,
+      80,
+      88,
+      96,
+      104,
+      112,
+      120,
+      128,
+      136,
+      144,
+      152,
+      160,
+      168,
+      176,
+      184,
+      192,
+      200,
+      208,
+      216,
+      224,
+      232,
+      240,
+      248,
+      256,
+      272,
+      288,
+      304,
+      320,
+      336,
+      352,
+      368,
+      384,
+      400,
+      416,
+      432,
+      448,
+      464,
+      480,
+      496,
+      512,
+      768,
+      832,
+      896,
+      2880,
+      3072
+    ],
+    "dp_candidate_bucket_sizes": [
+      80,
+      88,
+      96,
+      208,
+      416,
+      496,
+      768,
+      832,
+      896,
+      2880,
+      3072
+    ],
+    "explicit_extra_capture_sizes": [],
+    "max_extra_capture_size": 0,
+    "max_num_seqs": 8,
+    "template_scheduler": false,
+    "template_scheduler_max_wait_ms": 0.0,
+    "template_scheduler_max_scan": 16,
+    "batch_mode": false,
+    "allow_batch_extra_capture": false,
+    "fixed_metadata_arena": false,
+    "fixed_metadata_arena_max_reqs": 0,
+    "full_key_collapse": false,
+    "runtime_capture_bucket_sizes": [
+      1,
+      2,
+      4,
+      8,
+      16,
+      24,
+      32,
+      40,
+      48,
+      56,
+      64,
+      72,
+      80,
+      88,
+      96,
+      104,
+      112,
+      120,
+      128,
+      136,
+      144,
+      152,
+      160,
+      168,
+      176,
+      184,
+      192,
+      200,
+      208,
+      216,
+      224,
+      232,
+      240,
+      248,
+      256,
+      272,
+      288,
+      304,
+      320,
+      336,
+      352,
+      368,
+      384,
+      400,
+      416,
+      432,
+      448,
+      464,
+      480,
+      496,
+      512,
+      768,
+      832,
+      896,
+      2880,
+      3072
+    ],
+    "runtime_capture_note": "vLLM default small graphs plus DP-selected long graphs",
+    "dp_expected_hit_rate": 1.0,
+    "dp_expected_padding_waste_pct": 2.1783035199076743,
+    "dp_expected_fallback_count": 0,
+    "dp_total_graph_memory_mb": 218.64000000000001,
+    "dp_total_warmup_time_s": 0.6600000000000001
+  },
+  "workload_stats": {
+    "n": 16,
+    "p50": 751.0,
+    "p95": 2877.5,
+    "gt512": 10,
+    "gt2048": 2
+  },
+  "lengths": [
+    791,
+    756,
+    805,
+    750,
+    3023,
+    494,
+    409,
+    93,
+    83,
+    745,
+    2829,
+    886,
+    79,
+    859,
+    208,
+    752
+  ],
+  "results": [
+    {
+      "config": "1. Eager no-CP",
+      "init_s": 73.97289870725945,
+      "avg_ms": 314.66333390562795,
+      "p50_ms": 137.21662457101047,
+      "p95_ms": 903.9971736492589,
+      "p99_ms": 991.7279772693291,
+      "batch_total_ms": null,
+      "per_req": [
+        {
+          "tok": 791,
+          "ms": 118.4169864282012,
+          "output_token_ids": [
+            551
+          ],
+          "output_text": " he"
+        },
+        {
+          "tok": 756,
+          "ms": 137.84197391942143,
+          "output_token_ids": [
+            8618
+          ],
+          "output_text": " Each"
+        },
+        {
+          "tok": 805,
+          "ms": 129.35005174949765,
+          "output_token_ids": [
+            11
+          ],
+          "output_text": ","
+        },
+        {
+          "tok": 750,
+          "ms": 126.23927369713783,
+          "output_token_ids": [
+            49992
+          ],
+          "output_text": " repaired"
+        },
+        {
+          "tok": 3023,
+          "ms": 150.00349702313542,
+          "output_token_ids": [
+            1204
+          ],
+          "output_text": " how"
+        },
+        {
+          "tok": 494,
+          "ms": 1013.6606781743467,
+          "output_token_ids": [
+            48436
+          ],
+          "output_text": " gallons"
+        },
+        {
+          "tok": 409,
+          "ms": 767.0952491462231,
+          "output_token_ids": [
+            23107
+          ],
+          "output_text": " containers"
+        },
+        {
+          "tok": 93,
+          "ms": 867.4426721408963,
+          "output_token_ids": [
+            791
+          ],
+          "output_text": " per"
+        },
+        {
+          "tok": 83,
+          "ms": 136.5912752225995,
+          "output_token_ids": [
+            1024
+          ],
+          "output_text": " her"
+        },
+        {
+          "tok": 745,
+          "ms": 134.87808499485254,
+          "output_token_ids": [
+            15
+          ],
+          "output_text": "0"
+        },
+        {
+          "tok": 2829,
+          "ms": 157.537248916924,
+          "output_token_ids": [
+            1487
+          ],
+          "output_text": "ily"
+        },
+        {
+          "tok": 886,
+          "ms": 763.6620150879025,
+          "output_token_ids": [
+            321
+          ],
+          "output_text": " and"
+        },
+        {
+          "tok": 79,
+          "ms": 133.82396986708045,
+          "output_token_ids": [
+            21900
+          ],
+          "output_text": " pens"
+        },
+        {
+          "tok": 859,
+          "ms": 132.27454898878932,
+          "output_token_ids": [
+            1467
+          ],
+          "output_text": " did"
+        },
+        {
+          "tok": 208,
+          "ms": 140.98360296338797,
+          "output_token_ids": [
+            13
+          ],
+          "output_text": "."
+        },
+        {
+          "tok": 752,
+          "ms": 124.81221416965127,
+          "output_token_ids": [
+            3575
+          ],
+          "output_text": " card"
+        }
+      ],
+      "chunked": false,
+      "eager": true,
+      "capture_sizes": null,
+      "runtime_policy": null,
+      "runtime_base_capture_size": null,
+      "cudagraph_mode": "NONE",
+      "max_num_seqs": 8,
+      "template_scheduler": false,
+      "template_scheduler_max_wait_ms": 0.0,
+      "template_scheduler_max_scan": 16,
+      "batch_mode": false,
+      "fixed_metadata_arena": false,
+      "fixed_metadata_arena_max_reqs": 0,
+      "fixed_metadata_arena_min_tokens": 0,
+      "fixed_metadata_arena_max_tokens": 0,
+      "full_key_collapse": false,
+      "live_admission": false,
+      "live_observations": null,
+      "live_explore": false,
+      "live_min_samples": 0,
+      "live_min_useful_rate": 0.0,
+      "live_min_saving_ms": 0.0,
+      "live_max_p95_regression_ms": null,
+      "live_shadow_observations_written": 0,
+      "moe_capacity_buckets": null,
+      "dispatcher_profile": "results/vllm_qwen35_35b_16_eager_ref_1__eager_no_cp_dispatcher.jsonl",
+      "runner_profile": "results/vllm_qwen35_35b_16_eager_ref_1__eager_no_cp_runner.jsonl",
+      "attention_profile": "results/vllm_qwen35_35b_16_eager_ref_1__eager_no_cp_attn.jsonl",
+      "moe_profile": "results/vllm_qwen35_35b_16_eager_ref_1__eager_no_cp_moe.jsonl",
+      "scheduler_profile": "results/vllm_qwen35_35b_16_eager_ref_1__eager_no_cp_scheduler.jsonl",
+      "speedup_vs_first": 1.0,
+      "ranges": {
+        "(0,512]": {
+          "n": 6,
+          "avg_ms": 509.932907919089,
+          "p95_ms": 977.1061766659841
+        },
+        "(512,1024]": {
+          "n": 8,
+          "avg_ms": 208.43439362943172,
+          "p95_ms": 544.6250006789338
+        },
+        "(2048,4096]": {
+          "n": 2,
+          "avg_ms": 153.7703729700297,
+          "p95_ms": 157.16056132223457
+        }
+      },
+      "same_outputs_vs_first": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "all_same_outputs_vs_first": true,
+      "reference_config": "1. Eager no-CP",
+      "same_outputs_vs_reference": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "all_same_outputs_vs_reference": true
+    }
+  ]
+}

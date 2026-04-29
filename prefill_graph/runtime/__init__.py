@@ -1,0 +1,140 @@
+"""Staticity recovery runtime components.
+
+This package is intentionally framework-light.  It provides the policy,
+profiling, scheduling, arena, and admission machinery used by the benchmark
+adapters.  Framework-specific code should live in the benchmark/vLLM/dInfer
+adapters and translate their native events into these data structures.
+"""
+
+from .admission import (
+    LatencyObservation,
+    OnlineAdmissionDecision,
+    OnlineSelfLearningAdmissionController,
+    OnlineTemplateStats,
+    TemplateAdmissionController,
+    TemplateState,
+)
+from .arena import (
+    ArenaFieldSpec,
+    ArenaTemplateRegistry,
+    CanonicalMetadataArena,
+    ExpertMetadataCanonicalizer,
+    ExpertTrafficTemplate,
+    TokenAxisCanonicalizer,
+    TokenAxisTemplate,
+)
+from .control_plane import (
+    DispatchDecision,
+    DynamicAxis,
+    FieldContract,
+    FieldRole,
+    GuardSpec,
+    StaticityControlPlane,
+    TemplateLifecycle,
+    TemplateManifest,
+    TemplateRuntimeRecord,
+    ValidatorSpec,
+    function_branch_manifest,
+    moe_dispatch_manifest,
+    token_prefill_manifest,
+)
+from .dynamicity import (
+    DynamicFieldProfile,
+    DynamicityAnalyzer,
+    DynamicityKind,
+    StaticityDecision,
+)
+from .planner import (
+    ActionStats,
+    PlanDecision,
+    RequestContext,
+    RuntimePlanner,
+    RuntimePolicy,
+)
+from .profiler import DynamicityProfiler, JsonlProfiler
+from .residual_capture import (
+    DEFAULT_RESIDUAL_BUCKETS,
+    ResidualCaptureCandidate,
+    ResidualCaptureObservation,
+    ResidualCapturePlan,
+    ResidualCapturePlanner,
+    SGLANG_PCG_RESIDUAL_BUCKETS,
+    policy_graph_covers,
+    residual_buckets_for_preset,
+    sglang_piecewise_token_buckets,
+    template_for_tokens,
+)
+from .partial_graph import (
+    PartialGraphDecision,
+    PartialGraphSegment,
+    PartialGraphTemplateManager,
+    attention_segment_for_mode,
+    diffusion_step_segment,
+    moe_segment_for_capacity,
+)
+from .scheduler import (
+    ScheduledBatch,
+    SlaAwareTemplateScheduler,
+    TemplateAwareScheduler,
+    TemplateSchedulingSignal,
+)
+
+__all__ = [
+    "ActionStats",
+    "ArenaFieldSpec",
+    "ArenaTemplateRegistry",
+    "CanonicalMetadataArena",
+    "DynamicFieldProfile",
+    "DispatchDecision",
+    "DynamicAxis",
+    "DynamicityAnalyzer",
+    "DynamicityKind",
+    "DynamicityProfiler",
+    "DEFAULT_RESIDUAL_BUCKETS",
+    "ExpertMetadataCanonicalizer",
+    "ExpertTrafficTemplate",
+    "FieldContract",
+    "FieldRole",
+    "GuardSpec",
+    "JsonlProfiler",
+    "LatencyObservation",
+    "OnlineAdmissionDecision",
+    "OnlineSelfLearningAdmissionController",
+    "OnlineTemplateStats",
+    "PartialGraphDecision",
+    "PartialGraphSegment",
+    "PartialGraphTemplateManager",
+    "PlanDecision",
+    "RequestContext",
+    "RuntimePlanner",
+    "RuntimePolicy",
+    "SGLANG_PCG_RESIDUAL_BUCKETS",
+    "ResidualCaptureCandidate",
+    "ResidualCaptureObservation",
+    "ResidualCapturePlan",
+    "ResidualCapturePlanner",
+    "ScheduledBatch",
+    "SlaAwareTemplateScheduler",
+    "StaticityDecision",
+    "StaticityControlPlane",
+    "TemplateAdmissionController",
+    "TemplateAwareScheduler",
+    "TemplateLifecycle",
+    "TemplateManifest",
+    "TemplateRuntimeRecord",
+    "TemplateSchedulingSignal",
+    "TemplateState",
+    "TokenAxisCanonicalizer",
+    "TokenAxisTemplate",
+    "ValidatorSpec",
+    "attention_segment_for_mode",
+    "diffusion_step_segment",
+    "function_branch_manifest",
+    "moe_dispatch_manifest",
+    "moe_segment_for_capacity",
+    "policy_graph_covers",
+    "residual_buckets_for_preset",
+    "sglang_piecewise_token_buckets",
+    "template_for_tokens",
+    "token_prefill_manifest",
+]
