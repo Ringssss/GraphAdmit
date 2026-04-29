@@ -25,9 +25,79 @@ This is a research artifact.  Paths, model names, and GPU counts in the
 commands below match the local experimental setup used for the reported
 numbers and should be adjusted for a new machine.
 
+## Quick Start
+
+Install GraphAdmit directly from GitHub:
+
+```bash
+pip install git+https://github.com/Ringssss/GraphAdmit.git
+graphadmit doctor
+```
+
+Generate a fail-closed online admission policy.  This does not hard-code a
+trace-specific decision table; it exposes candidate templates and lets the
+patched engine admit only templates that are correct and faster than fallback:
+
+```bash
+graphadmit make-policy \
+  --bucket-preset sglang-pcg \
+  --max-tokens 4096 \
+  --output graphadmit_policy.json
+```
+
+Check and apply the vLLM/FlowPrefill patch:
+
+```bash
+git clone https://github.com/HSIEHCHIACHI/FlowPrefill.git external/FlowPrefill
+cd external/FlowPrefill
+graphadmit vllm-patch --target . --apply
+pip install -e .
+```
+
+Print the environment variables required by patched vLLM:
+
+```bash
+graphadmit vllm-env \
+  --policy graphadmit_policy.json \
+  --observations graphadmit_observations.jsonl
+```
+
+A typical launch looks like:
+
+```bash
+eval "$(graphadmit vllm-env \
+  --policy graphadmit_policy.json \
+  --observations graphadmit_observations.jsonl)"
+
+vllm serve /path/to/model \
+  --tensor-parallel-size 4 \
+  --max-model-len 4096
+```
+
+Or use the wrapper form:
+
+```bash
+graphadmit vllm-serve \
+  --policy graphadmit_policy.json \
+  --observations graphadmit_observations.jsonl \
+  -- /path/to/model --tensor-parallel-size 4 --max-model-len 4096
+```
+
+Run the packaged Torch CUDA Graph composition microbenchmark:
+
+```bash
+pip install 'git+https://github.com/Ringssss/GraphAdmit.git[torch]'
+graphadmit bench torch --output results/compositional_cuda_graph_microbench.json
+```
+
+The CLI is intentionally thin.  vLLM, SGLang, and Torch remain optional
+dependencies, so users can install the GraphAdmit policy layer without pulling
+in a serving stack on machines that only need analysis or policy generation.
+
 ## Repository Layout
 
 ```text
+graphadmit/                     Installable CLI and engine adapters
 prefill_graph/runtime/          Core runtime policy, admission, arenas, scheduler helpers
 prefill_graph/planner/          Bucket planner and cost model
 benchmarks/                     E2E harnesses, policy builders, analyzers, microbenches
