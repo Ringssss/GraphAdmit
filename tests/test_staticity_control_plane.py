@@ -5,8 +5,10 @@ import pytest
 from benchmarks.build_useful_coverage_policy import correctness_flags
 from prefill_graph.runtime import (
     CaptureResult,
+    DriftDecision,
     LiveCaptureCallbacks,
     LiveTemplateSpec,
+    LiveTemplateStatus,
     MoEDispatchTemplate,
     MoEDispatchTemplateRegistry,
     ReplayResult,
@@ -163,6 +165,51 @@ def test_same_engine_live_capture_blacklists_wrong_graph() -> None:
     assert result.action == "fallback"
     assert result.reason == "token_mismatch"
     assert manager.records["bad"].status.value == "blacklisted"
+
+
+def test_live_capture_applies_drift_actions_fail_closed() -> None:
+    manager = SameEngineLiveCaptureManager(validation_interval=8)
+    manager.register(LiveTemplateSpec("tokens=832", lo=744, hi=832))
+    manager.register(LiveTemplateSpec("tokens=1024", lo=832, hi=1024))
+    manager.records["tokens=832"].status = LiveTemplateStatus.ADMITTED
+    manager.records["tokens=1024"].status = LiveTemplateStatus.ADMITTED
+
+    affected = manager.apply_drift_decision(
+        DriftDecision(
+            drifted=True,
+            reason="token_distribution_shift",
+            action="explore_new_templates",
+            stats={},
+        ),
+        recent_template_ids=["tokens=832"],
+    )
+    assert affected == ["tokens=832"]
+    assert manager.records["tokens=832"].status.value == "shadow_validating"
+    assert manager.records["tokens=1024"].status.value == "admitted"
+
+    affected = manager.apply_drift_decision(
+        DriftDecision(
+            drifted=True,
+            reason="negative_graph_rate_drift",
+            action="increase_shadow_validation",
+            stats={},
+        ),
+        recent_template_ids=["tokens=1024"],
+    )
+    assert affected == ["tokens=1024"]
+    assert manager.shadow_validation_multiplier == 2
+
+    affected = manager.apply_drift_decision(
+        DriftDecision(
+            drifted=True,
+            reason="correctness_drift",
+            action="blacklist_recent_templates",
+            stats={},
+        ),
+        recent_template_ids=["tokens=1024"],
+    )
+    assert affected == ["tokens=1024"]
+    assert manager.records["tokens=1024"].status.value == "blacklisted"
 
 
 def test_moe_dispatch_template_requires_admission_and_capacity() -> None:

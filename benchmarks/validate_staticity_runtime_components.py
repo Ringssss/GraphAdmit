@@ -13,12 +13,14 @@ if str(ROOT) not in sys.path:
 from prefill_graph.runtime import (
     ArenaTemplateRegistry,
     CaptureResult,
+    DriftDecision,
     StaticityControlPlane,
     TemplateLifecycle,
     ExpertMetadataCanonicalizer,
     ExpertTrafficTemplate,
     LiveCaptureCallbacks,
     LiveTemplateSpec,
+    LiveTemplateStatus,
     MoEDispatchTemplate,
     MoEDispatchTemplateRegistry,
     OnlineSelfLearningAdmissionController,
@@ -373,9 +375,52 @@ def validate_same_engine_live_capture() -> dict[str, object]:
         for tokens in (750, 760, 770)
     ]
     policy = manager.export_policy(default_action="cp")
+    drift_affected = manager.apply_drift_decision(
+        DriftDecision(
+            drifted=True,
+            reason="token_distribution_shift",
+            action="explore_new_templates",
+            stats={"new_mean_tokens": 960},
+        ),
+        recent_template_ids=["tokens=832"],
+    )
+    manager.register(
+        LiveTemplateSpec(
+            "tokens=1024",
+            lo=805,
+            hi=1024,
+            template_tokens=1024,
+            action="ours_cp",
+            fallback_action="cp",
+        )
+    )
+    manager.records["tokens=1024"].status = LiveTemplateStatus.ADMITTED
+    shadow_affected = manager.apply_drift_decision(
+        DriftDecision(
+            drifted=True,
+            reason="negative_graph_rate_drift",
+            action="increase_shadow_validation",
+            stats={"negative_graph_rate": 0.4},
+        ),
+        recent_template_ids=["tokens=1024"],
+    )
+    blacklisted = manager.apply_drift_decision(
+        DriftDecision(
+            drifted=True,
+            reason="correctness_drift",
+            action="blacklist_recent_templates",
+            stats={"correctness_failures": 1},
+        ),
+        recent_template_ids=["tokens=1024"],
+    )
     return {
         "runs": runs,
         "policy": policy,
+        "drift_actions": {
+            "explore_new_templates": drift_affected,
+            "increase_shadow_validation": shadow_affected,
+            "blacklist_recent_templates": blacklisted,
+        },
         "summary": manager.summary(include_events=False),
     }
 

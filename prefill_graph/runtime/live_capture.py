@@ -7,6 +7,8 @@ import math
 import time
 from typing import Any
 
+from .drift import DriftDecision
+
 
 class LiveTemplateStatus(str, Enum):
     CANDIDATE = "candidate"
@@ -222,6 +224,7 @@ class SameEngineLiveCaptureManager:
         self.max_history = int(max_history)
         self.records: dict[str, LiveTemplateRecord] = {}
         self.events: list[dict[str, Any]] = []
+        self.shadow_validation_multiplier = 1
 
     def register(self, spec: LiveTemplateSpec) -> LiveTemplateRecord:
         record = self.records.get(spec.template_id)
@@ -461,6 +464,80 @@ class SameEngineLiveCaptureManager:
             evicted.append(victim.spec.template_id)
         return evicted
 
+    def apply_drift_decision(
+        self,
+        decision: DriftDecision | dict[str, Any],
+        *,
+        recent_template_ids: list[str | None] | None = None,
+        reason_prefix: str = "drift",
+    ) -> list[str]:
+        """Apply workload-drift feedback to live template state.
+
+        Drift detection is only useful if it changes execution policy.  This
+        method connects a detector decision to the fail-closed live manager:
+        correctness drift blacklists recent templates, negative graph drift
+        increases shadow validation cadence, and distribution/useful-coverage
+        drift moves admitted templates back to shadow validation.
+        """
+        if isinstance(decision, DriftDecision):
+            drifted = decision.drifted
+            action = decision.action
+            reason = decision.reason
+        else:
+            drifted = bool(decision.get("drifted", False))
+            action = str(decision.get("action", "keep_policy"))
+            reason = str(decision.get("reason", "unknown"))
+        if not drifted:
+            return []
+
+        recent = {
+            str(item)
+            for item in (recent_template_ids or [])
+            if item is not None and str(item) in self.records
+        }
+        affected: list[str] = []
+        full_reason = f"{reason_prefix}:{reason}"
+
+        if action == "blacklist_recent_templates":
+            for template_id in sorted(recent):
+                record = self.records[template_id]
+                if record.status == LiveTemplateStatus.EVICTED:
+                    continue
+                record.status = LiveTemplateStatus.BLACKLISTED
+                record.last_reason = full_reason
+                affected.append(template_id)
+        elif action == "increase_shadow_validation":
+            self.shadow_validation_multiplier = min(
+                self.shadow_validation_multiplier * 2,
+                16,
+            )
+            for template_id in sorted(recent):
+                record = self.records[template_id]
+                if record.status == LiveTemplateStatus.ADMITTED:
+                    record.last_reason = full_reason
+                    affected.append(template_id)
+        elif action in {"explore_new_templates", "refresh_admission"}:
+            targets = recent or {
+                template_id
+                for template_id, record in self.records.items()
+                if record.status == LiveTemplateStatus.ADMITTED
+            }
+            for template_id in sorted(targets):
+                record = self.records[template_id]
+                if record.status == LiveTemplateStatus.ADMITTED:
+                    record.status = LiveTemplateStatus.SHADOW_VALIDATING
+                    record.last_reason = full_reason
+                    affected.append(template_id)
+
+        self.events.append({
+            "event": "drift_action",
+            "reason": reason,
+            "action": action,
+            "affected": affected,
+            "shadow_validation_multiplier": self.shadow_validation_multiplier,
+        })
+        return affected
+
     def _over_budget(self) -> bool:
         active = [
             record for record in self.records.values()
@@ -499,7 +576,11 @@ class SameEngineLiveCaptureManager:
     ) -> bool:
         if callbacks.should_shadow is not None:
             return bool(callbacks.should_shadow(record.spec, record.replays))
-        return record.replays > 0 and record.replays % self.validation_interval == 0
+        interval = max(
+            1,
+            self.validation_interval // max(1, self.shadow_validation_multiplier),
+        )
+        return record.replays > 0 and record.replays % interval == 0
 
     def _validate(
         self,
@@ -568,6 +649,7 @@ class SameEngineLiveCaptureManager:
             "max_templates": self.max_templates,
             "max_graph_memory_bytes": self.max_graph_memory_bytes,
             "active_memory_bytes": active_memory,
+            "shadow_validation_multiplier": self.shadow_validation_multiplier,
             "templates": [record.to_json() for record in self.records.values()],
         }
         if include_events:

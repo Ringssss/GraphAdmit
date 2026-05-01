@@ -170,6 +170,7 @@ def main() -> None:
     static_rows = []
     live_rows = []
     drift_events = []
+    drift_actions = []
     for idx, tok in enumerate(tokens):
         bucket = template_for(tok, buckets)
         template_id, static_ms, static_graph = runtime.static_policy_latency(tok, bucket)
@@ -203,7 +204,21 @@ def main() -> None:
             )
         )
         if decision.drifted:
-            drift_events.append({"idx": idx, **decision.__dict__})
+            recent_template_ids = [
+                row.get("template_id")
+                for row in live_rows[-drift.window:]
+                if row.get("template_id")
+            ]
+            if result.template_id:
+                recent_template_ids.append(result.template_id)
+            affected = manager.apply_drift_decision(
+                decision,
+                recent_template_ids=recent_template_ids,
+                reason_prefix="workload_drift",
+            )
+            event = {"idx": idx, **decision.__dict__, "affected_templates": affected}
+            drift_events.append(event)
+            drift_actions.append(event)
         live_rows.append({
             "idx": idx,
             "tokens": tok,
@@ -230,6 +245,7 @@ def main() -> None:
         "manager": manager.summary(include_events=False),
         "drift": drift.summary(),
         "drift_events": drift_events[:64],
+        "drift_actions": drift_actions[:64],
         "rows": {
             "static": static_rows,
             "live": live_rows,
