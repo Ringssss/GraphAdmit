@@ -323,44 +323,207 @@ def _append_probe_crash_blacklist(
     return written
 
 
+def _probe_dispatch_template_aliases(template_id, rule, template_tokens):
+    aliases = [str(template_id)]
+    if isinstance(rule, dict):
+        action = str(rule.get('action', 'ours_cp'))
+        lo = rule.get('lo', rule.get('low'))
+        hi = rule.get('hi', rule.get('high'))
+        if lo is not None and hi is not None and template_tokens is not None:
+            aliases.append(
+                f'{action}:{lo}:{hi}:template={template_tokens}:reqs=*'
+            )
+    if template_tokens is not None:
+        aliases.append(f'tokens={template_tokens}')
+    out = []
+    seen = set()
+    for item in aliases:
+        if item in seen:
+            continue
+        seen.add(item)
+        out.append(item)
+    return out
+
+
+def _read_probe_dispatch_templates(dispatch_profile, *, graph_only=False, last_only=False):
+    if not dispatch_profile or not Path(dispatch_profile).exists():
+        return []
+    templates = []
+    with Path(dispatch_profile).open('r', encoding='utf-8') as fp:
+        for line in fp:
+            if not line.strip():
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if graph_only:
+                mode = str(row.get('mode', ''))
+                if not mode or mode == 'NONE':
+                    continue
+            admission = row.get('staticity_runtime_admission') or {}
+            template_id = admission.get('template_id')
+            action = row.get('staticity_runtime_action') or admission.get('action')
+            if template_id is None or str(action) not in {'ours', 'ours_cp'}:
+                continue
+            rule = row.get('staticity_runtime_rule') or {}
+            template_tokens = admission.get('template_tokens')
+            if template_tokens is None and isinstance(rule, dict):
+                template_tokens = rule.get('template_tokens')
+            try:
+                template_tokens = int(template_tokens)
+            except (TypeError, ValueError):
+                template_tokens = None
+            requested_tokens = row.get('requested_num_tokens')
+            try:
+                requested_tokens = int(requested_tokens)
+            except (TypeError, ValueError):
+                requested_tokens = int(template_tokens or 0)
+            key = str(template_id)
+            templates.append({
+                'template_id': key,
+                'template_aliases': _probe_dispatch_template_aliases(
+                    key, rule, template_tokens),
+                'action': str(action),
+                'template_tokens': template_tokens or requested_tokens,
+                'tokens': requested_tokens,
+                'lo': rule.get('lo', rule.get('low')) if isinstance(rule, dict) else None,
+                'hi': rule.get('hi', rule.get('high')) if isinstance(rule, dict) else None,
+                'reason': row.get('staticity_runtime_reason') or row.get('reason'),
+                'mode': row.get('mode'),
+            })
+    if last_only and templates:
+        return [templates[-1]]
+    seen = set()
+    unique = []
+    for item in templates:
+        key = item['template_id']
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(item)
+    templates = unique
+    return templates
+
+
+def _append_probe_dispatch_crash_blacklist(
+    live_observations,
+    *,
+    dispatch_profile,
+    returncode,
+    last_graph_only=True,
+):
+    templates = _read_probe_dispatch_templates(
+        dispatch_profile,
+        graph_only=last_graph_only,
+        last_only=last_graph_only,
+    )
+    if not live_observations or not templates:
+        return 0
+    written = 0
+    for item in templates:
+        append_live_admission_observation(
+            live_observations,
+            template_id=item['template_id'],
+            graph_ms=1.0e9,
+            fallback_ms=0.0,
+            correct=False,
+            tokens=int(item.get('tokens') or item.get('template_tokens') or 0),
+            request_index=-1,
+            extra={
+                'action': item.get('action'),
+                'template_aliases': item.get('template_aliases', []),
+                'template_tokens': item.get('template_tokens'),
+                'lo': item.get('lo'),
+                'hi': item.get('hi'),
+                'source': 'trusted_live_graph_replay',
+                'trusted_graph_replay': True,
+                'same_engine': True,
+                'shadow_engine': True,
+                'validation_mode': 'isolated_probe_dispatch_crash_blacklist',
+                'probe_crashed': True,
+                'probe_returncode': int(returncode),
+                'probe_dispatch_reason': item.get('reason'),
+                'probe_dispatch_mode': item.get('mode'),
+                'probe_blacklist_scope': (
+                    'last_graph_dispatch' if last_graph_only else 'all_dispatch_templates'
+                ),
+                'useful': False,
+            },
+        )
+        written += 1
+    return written
+
+
 def _run_isolated_live_probe(payload):
-    probe_payload = Path(payload['probe_payload'])
-    probe_payload.parent.mkdir(parents=True, exist_ok=True)
-    probe_payload.write_text(json.dumps(payload, sort_keys=True), encoding='utf-8')
     before = _count_live_rows(
         payload['live_observations'],
         sources={'live_graph_replay', 'trusted_live_graph_replay'},
     )
-    cmd = [
-        sys.executable,
-        str(Path(__file__).resolve()),
-        '--live-admission-probe-worker',
-        str(probe_payload),
-    ]
     timeout = float(payload.get('probe_timeout_s') or 0.0)
-    try:
-        proc = subprocess.run(
-            cmd,
-            check=False,
-            timeout=timeout if timeout > 0 else None,
-        )
-        returncode = int(proc.returncode)
-    except subprocess.TimeoutExpired:
-        returncode = 124
-    if returncode != 0:
-        validate_n = int(payload.get('validate_n') or len(payload['prompts']))
-        blacklisted = _append_probe_crash_blacklist(
+    max_rounds = max(1, int(payload.get('probe_max_rounds') or 1))
+    validate_n = int(payload.get('validate_n') or len(payload['prompts']))
+    returncode = 0
+    rounds = 0
+    crash_blacklists = 0
+    new_blacklists = 0
+    for round_idx in range(max_rounds):
+        rounds = round_idx + 1
+        round_payload = dict(payload)
+        probe_payload = Path(payload['probe_payload'])
+        if max_rounds > 1:
+            probe_payload = probe_payload.with_name(
+                f'{probe_payload.stem}.round{round_idx + 1}{probe_payload.suffix}'
+            )
+        probe_payload.parent.mkdir(parents=True, exist_ok=True)
+        if payload.get('probe_dispatch_profile'):
+            dispatch_profile = Path(payload['probe_dispatch_profile'])
+            if max_rounds > 1:
+                dispatch_profile = dispatch_profile.with_name(
+                    f'{dispatch_profile.stem}.round{round_idx + 1}{dispatch_profile.suffix}'
+                )
+            round_payload['probe_dispatch_profile'] = str(dispatch_profile)
+        probe_payload.write_text(json.dumps(round_payload, sort_keys=True), encoding='utf-8')
+        cmd = [
+            sys.executable,
+            str(Path(__file__).resolve()),
+            '--live-admission-probe-worker',
+            str(probe_payload),
+        ]
+        try:
+            proc = subprocess.run(
+                cmd,
+                check=False,
+                timeout=timeout if timeout > 0 else None,
+            )
+            returncode = int(proc.returncode)
+        except subprocess.TimeoutExpired:
+            returncode = 124
+        if returncode == 0:
+            break
+        blacklisted = _append_probe_dispatch_crash_blacklist(
             payload['live_observations'],
-            runtime_policy=payload['runtime_policy'],
-            lens=payload['lens'],
-            validate_n=validate_n,
-            template_id_style=payload['live_observation_template_id'],
+            dispatch_profile=round_payload.get('probe_dispatch_profile'),
             returncode=returncode,
         )
+        if blacklisted == 0:
+            blacklisted = _append_probe_crash_blacklist(
+                payload['live_observations'],
+                runtime_policy=payload['runtime_policy'],
+                lens=payload['lens'],
+                validate_n=validate_n,
+                template_id_style=payload['live_observation_template_id'],
+                returncode=returncode,
+            )
+        crash_blacklists += blacklisted
+        new_blacklists = blacklisted
         print(
-            f'  isolated live probe failed rc={returncode}; '
-            f'wrote {blacklisted} fail-closed blacklist observations'
+            f'  isolated live probe failed round={round_idx + 1} '
+            f'rc={returncode}; wrote {blacklisted} fail-closed '
+            'blacklist observations'
         )
+        if blacklisted == 0:
+            break
     after = _count_live_rows(
         payload['live_observations'],
         sources={'live_graph_replay', 'trusted_live_graph_replay'},
@@ -370,6 +533,9 @@ def _run_isolated_live_probe(payload):
         'observations': after['observations'] - before['observations'],
         'correct': after['correct'] - before['correct'],
         'useful': after['useful'] - before['useful'],
+        'rounds': rounds,
+        'crash_blacklists': crash_blacklists,
+        'last_round_new_blacklists': new_blacklists,
     }
 
 
@@ -397,6 +563,11 @@ def run_live_admission_probe_worker(payload_path):
         'STATICITY_VLLM_RUNTIME_CONTROL': runtime_control_path,
         'STATICITY_VLLM_LIVE_OBSERVATIONS': payload['live_observations'],
     }
+    if payload.get('probe_dispatch_profile'):
+        Path(payload['probe_dispatch_profile']).parent.mkdir(parents=True, exist_ok=True)
+        Path(payload['probe_dispatch_profile']).write_text('', encoding='utf-8')
+        env_updates['STATICITY_VLLM_CG_PROFILE'] = payload['probe_dispatch_profile']
+        env_updates['VLLM_CG_TRACE_FILE'] = payload['probe_dispatch_profile']
     if payload.get('live_max_p95_regression_ms') is not None:
         env_updates['STATICITY_VLLM_LIVE_MAX_P95_REGRESSION_MS'] = str(
             payload['live_max_p95_regression_ms'])
@@ -585,6 +756,8 @@ def run_config(
     live_same_engine_validate_limit=0,
     live_isolated_probe=False,
     live_isolated_probe_timeout_s=0.0,
+    live_isolated_probe_max_rounds=1,
+    graphadmit_only=False,
     moe_capacity_buckets=None,
     disable_prefix_caching=False,
 ):
@@ -622,6 +795,7 @@ def run_config(
     old_exact_token_templates = os.environ.get('STATICITY_VLLM_EXACT_TOKEN_TEMPLATES')
     old_trust_shadow_positive = os.environ.get('STATICITY_VLLM_TRUST_SHADOW_POSITIVE_OBSERVATIONS')
     old_positive_alias_expansion = os.environ.get('STATICITY_VLLM_POSITIVE_ALIAS_EXPANSION')
+    old_graphadmit_only = os.environ.get('STATICITY_VLLM_GRAPHADMIT_ONLY')
     dispatch_profile = None
     runner_profile = None
     attn_profile = None
@@ -726,6 +900,8 @@ def run_config(
     if live_observation_source == 'graph_replay_shadow' and not live_shadow_graph_replay:
         os.environ['STATICITY_VLLM_TRUST_SHADOW_POSITIVE_OBSERVATIONS'] = '0'
         os.environ['STATICITY_VLLM_POSITIVE_ALIAS_EXPANSION'] = '0'
+    if graphadmit_only:
+        os.environ['STATICITY_VLLM_GRAPHADMIT_ONLY'] = '1'
     if moe_capacity_buckets:
         os.environ['STATICITY_VLLM_MOE_CAPACITY_BUCKETS'] = moe_capacity_buckets
     isolated_probe_counts = {'returncode': None, 'observations': 0, 'correct': 0, 'useful': 0}
@@ -769,6 +945,11 @@ def run_config(
             'disable_prefix_caching': True,
             'validate_n': int(validate_n),
             'probe_timeout_s': float(live_isolated_probe_timeout_s or 0.0),
+            'probe_max_rounds': int(live_isolated_probe_max_rounds or 1),
+            'probe_dispatch_profile': str(
+                Path(runtime_control_path).with_suffix('.probe_dispatcher.jsonl')
+                if runtime_control_path else Path(live_observations).with_suffix('.probe_dispatcher.jsonl')
+            ),
         }
         print(f'  isolated live probe: n={validate_n}')
         isolated_probe_counts = _run_isolated_live_probe(probe_payload)
@@ -1151,6 +1332,10 @@ def run_config(
             os.environ.pop('STATICITY_VLLM_POSITIVE_ALIAS_EXPANSION', None)
         else:
             os.environ['STATICITY_VLLM_POSITIVE_ALIAS_EXPANSION'] = old_positive_alias_expansion
+        if old_graphadmit_only is None:
+            os.environ.pop('STATICITY_VLLM_GRAPHADMIT_ONLY', None)
+        else:
+            os.environ['STATICITY_VLLM_GRAPHADMIT_ONLY'] = old_graphadmit_only
     gc.collect(); torch.cuda.empty_cache(); time.sleep(2)
     arr = np.array(ttfts)
     return {
@@ -1210,6 +1395,10 @@ def run_config(
         'live_isolated_probe_observations': int(isolated_probe_counts.get('observations') or 0),
         'live_isolated_probe_correct': int(isolated_probe_counts.get('correct') or 0),
         'live_isolated_probe_useful': int(isolated_probe_counts.get('useful') or 0),
+        'live_isolated_probe_rounds': int(isolated_probe_counts.get('rounds') or 0),
+        'live_isolated_probe_crash_blacklists': int(isolated_probe_counts.get('crash_blacklists') or 0),
+        'live_isolated_probe_last_round_new_blacklists': int(isolated_probe_counts.get('last_round_new_blacklists') or 0),
+        'graphadmit_only': bool(graphadmit_only),
         'runtime_control': runtime_control_path,
         'moe_capacity_buckets': moe_capacity_buckets,
         'dispatcher_profile': dispatch_profile,
@@ -1330,6 +1519,10 @@ def main():
                     help='validate unsafe graph replay in an isolated worker before starting the measured serving engine; probe crashes become trusted negative observations')
     ap.add_argument('--live-admission-isolated-probe-timeout-s', type=float, default=0.0,
                     help='timeout for --live-admission-isolated-probe; 0 disables timeout')
+    ap.add_argument('--live-admission-isolated-probe-max-rounds', type=int, default=1,
+                    help='maximum isolated probe restarts after crash blacklists; each crash blacklists the actual dispatcher template before retrying')
+    ap.add_argument('--graphadmit-only', action='store_true',
+                    help='strict runtime mode: only GraphAdmit-controlled ours/ours_cp templates may replay; vLLM default/cp graphs are forced to fallback')
     ap.add_argument('--moe-capacity-buckets', default=None,
                     help='comma-separated MoE expert capacity buckets used by routed-expert metadata profiling')
     ap.add_argument('--disable-prefix-caching', action='store_true',
@@ -1634,6 +1827,8 @@ def main():
             live_same_engine_validate_limit=args.live_admission_same_engine_validate_limit,
             live_isolated_probe=args.live_admission_isolated_probe,
             live_isolated_probe_timeout_s=args.live_admission_isolated_probe_timeout_s,
+            live_isolated_probe_max_rounds=args.live_admission_isolated_probe_max_rounds,
+            graphadmit_only=args.graphadmit_only,
             moe_capacity_buckets=args.moe_capacity_buckets,
             disable_prefix_caching=args.disable_prefix_caching,
         ))
@@ -1688,6 +1883,7 @@ def main():
             live_observation_template_id=args.live_admission_template_id,
             live_observation_trusted=args.live_admission_trusted_shadow,
             live_shadow_rows=baseline_rows,
+            graphadmit_only=args.graphadmit_only,
             moe_capacity_buckets=args.moe_capacity_buckets,
             disable_prefix_caching=args.disable_prefix_caching,
         ))
@@ -1736,6 +1932,8 @@ def main():
             live_same_engine_validate_limit=args.live_admission_same_engine_validate_limit,
             live_isolated_probe=args.live_admission_isolated_probe,
             live_isolated_probe_timeout_s=args.live_admission_isolated_probe_timeout_s,
+            live_isolated_probe_max_rounds=args.live_admission_isolated_probe_max_rounds,
+            graphadmit_only=args.graphadmit_only,
             moe_capacity_buckets=args.moe_capacity_buckets,
             disable_prefix_caching=args.disable_prefix_caching,
         ))
@@ -1784,6 +1982,8 @@ def main():
             live_same_engine_validate_limit=args.live_admission_same_engine_validate_limit,
             live_isolated_probe=args.live_admission_isolated_probe,
             live_isolated_probe_timeout_s=args.live_admission_isolated_probe_timeout_s,
+            live_isolated_probe_max_rounds=args.live_admission_isolated_probe_max_rounds,
+            graphadmit_only=args.graphadmit_only,
             moe_capacity_buckets=args.moe_capacity_buckets,
             disable_prefix_caching=args.disable_prefix_caching,
         ))
@@ -1832,6 +2032,8 @@ def main():
             live_same_engine_validate_limit=args.live_admission_same_engine_validate_limit,
             live_isolated_probe=args.live_admission_isolated_probe,
             live_isolated_probe_timeout_s=args.live_admission_isolated_probe_timeout_s,
+            live_isolated_probe_max_rounds=args.live_admission_isolated_probe_max_rounds,
+            graphadmit_only=args.graphadmit_only,
             moe_capacity_buckets=args.moe_capacity_buckets,
             disable_prefix_caching=args.disable_prefix_caching,
         ))

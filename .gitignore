@@ -53,6 +53,7 @@ results/*
 !results/qwentrace_morspec_qwen_64_4096.json
 !results/qwentrace_morspec_qwen_128_4096.json
 !results/trusted_same_engine_replay_2026_05_01.md
+!results/e2e_graphadmit_iterprobe_review_2026_05_01.md
 !results/runtime_policy_vllm_qwen3_32b_64_useful_auto_1024.json
 !results/runtime_policy_vllm_qwen3_235b_16_pcg_tail_learned.json
 !results/vllm_qwen3_32b_sameengine_range_bs64_20260501.json
