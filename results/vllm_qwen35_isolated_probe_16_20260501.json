@@ -1,0 +1,789 @@
+{
+  "partial": false,
+  "workload": "results/qwentrace_morspec_qwen_16_4096.json",
+  "model": "/mnt/models/Qwen3.5-35B-A3B",
+  "reference_config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE",
+  "planner": {
+    "mode": "hybrid",
+    "note": "vLLM default small graphs plus DP-selected long graphs",
+    "bucket_sizes": [
+      1,
+      2,
+      4,
+      8,
+      16,
+      24,
+      32,
+      40,
+      48,
+      56,
+      64,
+      72,
+      80,
+      88,
+      96,
+      104,
+      112,
+      120,
+      128,
+      136,
+      144,
+      152,
+      160,
+      168,
+      176,
+      184,
+      192,
+      200,
+      208,
+      216,
+      224,
+      232,
+      240,
+      248,
+      256,
+      272,
+      288,
+      304,
+      320,
+      336,
+      352,
+      368,
+      384,
+      400,
+      416,
+      432,
+      448,
+      464,
+      480,
+      496,
+      512,
+      576,
+      640,
+      704,
+      768,
+      832,
+      896,
+      960,
+      1024,
+      1280,
+      1536,
+      1792,
+      2048,
+      2304,
+      2560,
+      2816,
+      3072,
+      3328,
+      3584,
+      3840,
+      4096
+    ],
+    "dp_candidate_bucket_sizes": [
+      80,
+      88,
+      96,
+      208,
+      416,
+      496,
+      768,
+      832,
+      896,
+      2880,
+      3072
+    ],
+    "explicit_extra_capture_sizes": [],
+    "max_extra_capture_size": 0,
+    "max_num_seqs": 8,
+    "template_scheduler": false,
+    "template_scheduler_max_wait_ms": 0.0,
+    "template_scheduler_max_scan": 16,
+    "batch_mode": false,
+    "allow_batch_extra_capture": false,
+    "fixed_metadata_arena": false,
+    "fixed_metadata_arena_max_reqs": 0,
+    "full_key_collapse": false,
+    "runtime_capture_bucket_sizes": [
+      1,
+      2,
+      4,
+      8,
+      16,
+      24,
+      32,
+      40,
+      48,
+      56,
+      64,
+      72,
+      80,
+      88,
+      96,
+      104,
+      112,
+      120,
+      128,
+      136,
+      144,
+      152,
+      160,
+      168,
+      176,
+      184,
+      192,
+      200,
+      208,
+      216,
+      224,
+      232,
+      240,
+      248,
+      256,
+      272,
+      288,
+      304,
+      320,
+      336,
+      352,
+      368,
+      384,
+      400,
+      416,
+      432,
+      448,
+      464,
+      480,
+      496,
+      512,
+      576,
+      640,
+      704,
+      768,
+      832,
+      896,
+      960,
+      1024,
+      1280,
+      1536,
+      1792,
+      2048,
+      2304,
+      2560,
+      2816,
+      3072,
+      3328,
+      3584,
+      3840,
+      4096
+    ],
+    "runtime_capture_note": "vLLM default small graphs plus DP-selected long graphs",
+    "dp_expected_hit_rate": 1.0,
+    "dp_expected_padding_waste_pct": 2.1783035199076743,
+    "dp_expected_fallback_count": 0,
+    "dp_total_graph_memory_mb": 218.64000000000001,
+    "dp_total_warmup_time_s": 0.6600000000000001
+  },
+  "workload_stats": {
+    "n": 16,
+    "p50": 751.0,
+    "p95": 2877.5,
+    "gt512": 10,
+    "gt2048": 2
+  },
+  "lengths": [
+    791,
+    756,
+    805,
+    750,
+    3023,
+    494,
+    409,
+    93,
+    83,
+    745,
+    2829,
+    886,
+    79,
+    859,
+    208,
+    752
+  ],
+  "results": [
+    {
+      "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE",
+      "init_s": 86.24844236858189,
+      "avg_ms": 119.89655013894662,
+      "p50_ms": 117.89683485403657,
+      "p95_ms": 144.74058407358825,
+      "p99_ms": 155.20008779130876,
+      "batch_total_ms": null,
+      "per_req": [
+        {
+          "tok": 791,
+          "ms": 98.00705686211586,
+          "output_token_ids": [
+            551
+          ],
+          "output_text": " he",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 756,
+          "ms": 122.7804496884346,
+          "output_token_ids": [
+            8618
+          ],
+          "output_text": " Each",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 805,
+          "ms": 108.15618559718132,
+          "output_token_ids": [
+            11
+          ],
+          "output_text": ",",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 750,
+          "ms": 106.28815740346909,
+          "output_token_ids": [
+            49992
+          ],
+          "output_text": " repaired",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 3023,
+          "ms": 157.8149637207389,
+          "output_token_ids": [
+            1204
+          ],
+          "output_text": " how",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 494,
+          "ms": 122.09453526884317,
+          "output_token_ids": [
+            89668
+          ],
+          "output_text": " liters",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 409,
+          "ms": 120.38566078990698,
+          "output_token_ids": [
+            23107
+          ],
+          "output_text": " containers",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 93,
+          "ms": 129.79386188089848,
+          "output_token_ids": [
+            791
+          ],
+          "output_text": " per",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 83,
+          "ms": 113.4822117164731,
+          "output_token_ids": [
+            1024
+          ],
+          "output_text": " her",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 745,
+          "ms": 115.40800891816616,
+          "output_token_ids": [
+            15
+          ],
+          "output_text": "0",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 2829,
+          "ms": 140.38245752453804,
+          "output_token_ids": [
+            1487
+          ],
+          "output_text": "ily",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 886,
+          "ms": 127.16427072882652,
+          "output_token_ids": [
+            321
+          ],
+          "output_text": " and",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 79,
+          "ms": 115.34648109227419,
+          "output_token_ids": [
+            21900
+          ],
+          "output_text": " pens",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 859,
+          "ms": 113.37011773139238,
+          "output_token_ids": [
+            1467
+          ],
+          "output_text": " did",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 208,
+          "ms": 122.43392318487167,
+          "output_token_ids": [
+            13
+          ],
+          "output_text": ".",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 752,
+          "ms": 105.4364601150155,
+          "output_token_ids": [
+            3575
+          ],
+          "output_text": " card",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        }
+      ],
+      "chunked": true,
+      "eager": false,
+      "capture_sizes": null,
+      "runtime_policy": null,
+      "runtime_base_capture_size": null,
+      "cudagraph_mode": "FULL_AND_PIECEWISE",
+      "max_num_seqs": 8,
+      "template_scheduler": false,
+      "template_scheduler_max_wait_ms": 0.0,
+      "template_scheduler_max_scan": 16,
+      "batch_mode": false,
+      "fixed_metadata_arena": false,
+      "fixed_metadata_arena_max_reqs": 0,
+      "fixed_metadata_arena_min_tokens": 0,
+      "fixed_metadata_arena_max_tokens": 0,
+      "full_key_collapse": false,
+      "live_admission": false,
+      "live_observations": null,
+      "live_explore": false,
+      "live_min_samples": 0,
+      "live_min_useful_rate": 0.0,
+      "live_min_saving_ms": 0.0,
+      "live_max_p95_regression_ms": null,
+      "live_capture": false,
+      "live_shadow_graph_replay": false,
+      "live_observation_source": "offline_shadow_baseline",
+      "live_observation_template_id": "exact",
+      "live_observation_trusted": false,
+      "live_shadow_observations_written": 0,
+      "live_same_engine_validate": false,
+      "live_same_engine_validate_limit": 0,
+      "live_same_engine_observations_written": 0,
+      "live_same_engine_correct": 0,
+      "live_same_engine_useful": 0,
+      "live_same_engine_validation_ms": 0.0,
+      "live_isolated_probe": false,
+      "live_isolated_probe_returncode": null,
+      "live_isolated_probe_observations": 0,
+      "live_isolated_probe_correct": 0,
+      "live_isolated_probe_useful": 0,
+      "runtime_control": null,
+      "moe_capacity_buckets": null,
+      "dispatcher_profile": "results/vllm_qwen35_isolated_probe_16_20260501_4__vllm_graph_max512_cp_full_and_piecewise_dispatcher.jsonl",
+      "runner_profile": "results/vllm_qwen35_isolated_probe_16_20260501_4__vllm_graph_max512_cp_full_and_piecewise_runner.jsonl",
+      "attention_profile": "results/vllm_qwen35_isolated_probe_16_20260501_4__vllm_graph_max512_cp_full_and_piecewise_attn.jsonl",
+      "moe_profile": "results/vllm_qwen35_isolated_probe_16_20260501_4__vllm_graph_max512_cp_full_and_piecewise_moe.jsonl",
+      "disable_prefix_caching": true,
+      "scheduler_profile": "results/vllm_qwen35_isolated_probe_16_20260501_4__vllm_graph_max512_cp_full_and_piecewise_scheduler.jsonl",
+      "speedup_vs_first": 1.0,
+      "ranges": {
+        "(0,512]": {
+          "n": 6,
+          "avg_ms": 120.5894456555446,
+          "p95_ms": 127.95387720689178
+        },
+        "(512,1024]": {
+          "n": 8,
+          "avg_ms": 112.07633838057518,
+          "p95_ms": 125.62993336468935
+        },
+        "(2048,4096]": {
+          "n": 2,
+          "avg_ms": 149.09871062263846,
+          "p95_ms": 156.94333841092885
+        }
+      },
+      "same_outputs_vs_first": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "all_same_outputs_vs_first": true,
+      "reference_config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE",
+      "same_outputs_vs_reference": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "all_same_outputs_vs_reference": true
+    },
+    {
+      "config": "7. Single-engine runtime hybrid max4096 CP",
+      "init_s": 80.12800893839449,
+      "avg_ms": 86.68529998976737,
+      "p50_ms": 104.10724487155676,
+      "p95_ms": 129.96423267759383,
+      "p99_ms": 136.4857964683324,
+      "batch_total_ms": null,
+      "per_req": [
+        {
+          "tok": 791,
+          "ms": 94.97041162103415,
+          "output_token_ids": [
+            551
+          ],
+          "output_text": " he"
+        },
+        {
+          "tok": 756,
+          "ms": 113.77786472439766,
+          "output_token_ids": [
+            8618
+          ],
+          "output_text": " Each"
+        },
+        {
+          "tok": 805,
+          "ms": 105.50111532211304,
+          "output_token_ids": [
+            11
+          ],
+          "output_text": ","
+        },
+        {
+          "tok": 750,
+          "ms": 109.85283739864826,
+          "output_token_ids": [
+            49992
+          ],
+          "output_text": " repaired"
+        },
+        {
+          "tok": 3023,
+          "ms": 123.49471729248762,
+          "output_token_ids": [
+            1204
+          ],
+          "output_text": " how"
+        },
+        {
+          "tok": 494,
+          "ms": 42.56135690957308,
+          "output_token_ids": [
+            89668
+          ],
+          "output_text": " liters"
+        },
+        {
+          "tok": 409,
+          "ms": 41.186559945344925,
+          "output_token_ids": [
+            23107
+          ],
+          "output_text": " containers"
+        },
+        {
+          "tok": 93,
+          "ms": 38.91969472169876,
+          "output_token_ids": [
+            310
+          ],
+          "output_text": " to"
+        },
+        {
+          "tok": 83,
+          "ms": 38.76357153058052,
+          "output_token_ids": [
+            1024
+          ],
+          "output_text": " her"
+        },
+        {
+          "tok": 745,
+          "ms": 116.79223272949457,
+          "output_token_ids": [
+            15
+          ],
+          "output_text": "0"
+        },
+        {
+          "tok": 2829,
+          "ms": 138.11618741601706,
+          "output_token_ids": [
+            1487
+          ],
+          "output_text": "ily"
+        },
+        {
+          "tok": 886,
+          "ms": 127.24691443145275,
+          "output_token_ids": [
+            321
+          ],
+          "output_text": " and"
+        },
+        {
+          "tok": 79,
+          "ms": 41.19052551686764,
+          "output_token_ids": [
+            21900
+          ],
+          "output_text": " pens"
+        },
+        {
+          "tok": 859,
+          "ms": 112.14650422334671,
+          "output_token_ids": [
+            1467
+          ],
+          "output_text": " did"
+        },
+        {
+          "tok": 208,
+          "ms": 39.730931632220745,
+          "output_token_ids": [
+            13
+          ],
+          "output_text": "."
+        },
+        {
+          "tok": 752,
+          "ms": 102.71337442100048,
+          "output_token_ids": [
+            3575
+          ],
+          "output_text": " card"
+        }
+      ],
+      "chunked": true,
+      "eager": false,
+      "capture_sizes": [
+        1,
+        2,
+        4,
+        8,
+        16,
+        24,
+        32,
+        40,
+        48,
+        56,
+        64,
+        72,
+        80,
+        88,
+        96,
+        104,
+        112,
+        120,
+        128,
+        136,
+        144,
+        152,
+        160,
+        168,
+        176,
+        184,
+        192,
+        200,
+        208,
+        216,
+        224,
+        232,
+        240,
+        248,
+        256,
+        272,
+        288,
+        304,
+        320,
+        336,
+        352,
+        368,
+        384,
+        400,
+        416,
+        432,
+        448,
+        464,
+        480,
+        496,
+        512,
+        576,
+        640,
+        704,
+        768,
+        832,
+        896,
+        960,
+        1024,
+        1280,
+        1536,
+        1792,
+        2048,
+        2304,
+        2560,
+        2816,
+        3072,
+        3328,
+        3584,
+        3840,
+        4096
+      ],
+      "runtime_policy": "results/runtime_policy_vllm_qwen35_35b_generic_pcg_live.json",
+      "runtime_base_capture_size": 512,
+      "cudagraph_mode": "FULL_AND_PIECEWISE",
+      "max_num_seqs": 8,
+      "template_scheduler": false,
+      "template_scheduler_max_wait_ms": 0.0,
+      "template_scheduler_max_scan": 16,
+      "batch_mode": false,
+      "fixed_metadata_arena": false,
+      "fixed_metadata_arena_max_reqs": 0,
+      "fixed_metadata_arena_min_tokens": 0,
+      "fixed_metadata_arena_max_tokens": 0,
+      "full_key_collapse": false,
+      "live_admission": true,
+      "live_observations": "results/live_obs_qwen35_isolated_probe_16_20260501.jsonl",
+      "live_explore": true,
+      "live_min_samples": 2,
+      "live_min_useful_rate": 0.67,
+      "live_min_saving_ms": 0.5,
+      "live_max_p95_regression_ms": 5.0,
+      "live_capture": true,
+      "live_shadow_graph_replay": false,
+      "live_observation_source": "offline_shadow_baseline",
+      "live_observation_template_id": "range",
+      "live_observation_trusted": false,
+      "live_shadow_observations_written": 0,
+      "live_same_engine_validate": false,
+      "live_same_engine_validate_limit": 0,
+      "live_same_engine_observations_written": 0,
+      "live_same_engine_correct": 0,
+      "live_same_engine_useful": 0,
+      "live_same_engine_validation_ms": 0.0,
+      "live_isolated_probe": true,
+      "live_isolated_probe_returncode": 1,
+      "live_isolated_probe_observations": 4,
+      "live_isolated_probe_correct": 0,
+      "live_isolated_probe_useful": 0,
+      "runtime_control": "results/live_obs_qwen35_isolated_probe_16_20260501.jsonl.control.json",
+      "moe_capacity_buckets": null,
+      "dispatcher_profile": "results/vllm_qwen35_isolated_probe_16_20260501_7__single_engine_runtime_hybrid_max4096_cp_dispatcher.jsonl",
+      "runner_profile": "results/vllm_qwen35_isolated_probe_16_20260501_7__single_engine_runtime_hybrid_max4096_cp_runner.jsonl",
+      "attention_profile": "results/vllm_qwen35_isolated_probe_16_20260501_7__single_engine_runtime_hybrid_max4096_cp_attn.jsonl",
+      "moe_profile": "results/vllm_qwen35_isolated_probe_16_20260501_7__single_engine_runtime_hybrid_max4096_cp_moe.jsonl",
+      "disable_prefix_caching": true,
+      "scheduler_profile": "results/vllm_qwen35_isolated_probe_16_20260501_7__single_engine_runtime_hybrid_max4096_cp_scheduler.jsonl",
+      "speedup_vs_first": 1.3831243607981931,
+      "ranges": {
+        "(0,512]": {
+          "n": 6,
+          "avg_ms": 40.39210670938095,
+          "p95_ms": 42.21864906139672
+        },
+        "(512,1024]": {
+          "n": 8,
+          "avg_ms": 110.37515685893595,
+          "p95_ms": 123.58777583576739
+        },
+        "(2048,4096]": {
+          "n": 2,
+          "avg_ms": 130.80545235425234,
+          "p95_ms": 137.38511390984058
+        }
+      },
+      "same_outputs_vs_first": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "all_same_outputs_vs_first": false,
+      "reference_config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE",
+      "same_outputs_vs_reference": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "all_same_outputs_vs_reference": false
+    }
+  ]
+}

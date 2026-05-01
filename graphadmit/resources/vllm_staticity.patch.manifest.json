@@ -27,7 +27,7 @@
       "exists": true,
       "tracked": true,
       "staticity_markers": true,
-      "diff_lines": 1329
+      "diff_lines": 1434
     },
     {
       "path": "vllm/v1/core/sched/scheduler.py",

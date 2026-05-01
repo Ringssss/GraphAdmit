@@ -130,6 +130,9 @@ def main() -> None:
     os.environ["STATICITY_VLLM_TRUST_SEEDED_ONLINE_ADMISSION"] = "0"
     os.environ["STATICITY_VLLM_LIVE_CAPTURE"] = "1"
     os.environ.pop("STATICITY_VLLM_LIVE_CAPTURE_ONLY_EXPLORE", None)
+    control_path = workdir / "runtime_control.json"
+    control_path.write_text("{}", encoding="utf-8")
+    os.environ["STATICITY_VLLM_RUNTIME_CONTROL"] = str(control_path)
 
     dispatcher = importlib.import_module("vllm.v1.cudagraph_dispatcher")
     dispatcher._STATICITY_RUNTIME_POLICY_CACHE = None
@@ -141,14 +144,31 @@ def main() -> None:
     exploring = dispatcher._staticity_runtime_allows_graph(1400, 1, False)
     shadow_positive_not_admitted = dispatcher._staticity_runtime_allows_graph(1450, 1, False)
     default_safe = dispatcher._staticity_runtime_allows_graph(128, 1, False)
+    os.environ["STATICITY_VLLM_FORCE_RUNTIME_FALLBACK"] = "1"
+    forced_runtime_fallback = dispatcher._staticity_runtime_allows_graph(750, 1, False)
+    os.environ.pop("STATICITY_VLLM_FORCE_RUNTIME_FALLBACK", None)
+    control_path.write_text(
+        json.dumps({"force_runtime_fallback": True}),
+        encoding="utf-8",
+    )
+    control_forced_runtime_fallback = dispatcher._staticity_runtime_allows_graph(750, 1, False)
+    control_path.write_text("{}", encoding="utf-8")
     os.environ["STATICITY_VLLM_LIVE_CAPTURE_ONLY_EXPLORE"] = "1"
     dispatcher._STATICITY_RUNTIME_POLICY_CACHE = None
     dispatcher._STATICITY_RUNTIME_POLICY_PATH = None
     capture_only = dispatcher._staticity_runtime_allows_graph(1400, 1, False)
+    os.environ.pop("STATICITY_VLLM_LIVE_CAPTURE_ONLY_EXPLORE", None)
+    control_path.write_text(
+        json.dumps({"unsafe_live_explore_replay": True}),
+        encoding="utf-8",
+    )
+    dispatcher._STATICITY_RUNTIME_POLICY_CACHE = None
+    dispatcher._STATICITY_RUNTIME_POLICY_PATH = None
+    exploratory_replay = dispatcher._staticity_runtime_allows_graph(1400, 1, False)
+    control_path.write_text("{}", encoding="utf-8")
     empty_obs_path = workdir / "empty_observations.jsonl"
     empty_obs_path.write_text("", encoding="utf-8")
     os.environ["STATICITY_VLLM_LIVE_OBSERVATIONS"] = str(empty_obs_path)
-    os.environ.pop("STATICITY_VLLM_LIVE_CAPTURE_ONLY_EXPLORE", None)
     dispatcher._STATICITY_RUNTIME_POLICY_CACHE = None
     dispatcher._STATICITY_RUNTIME_POLICY_PATH = None
     seeded_ignored = dispatcher._staticity_runtime_allows_graph(750, 1, False)
@@ -192,11 +212,29 @@ def main() -> None:
             "reason": capture_only[3],
             "admission": capture_only[4],
         },
+        "exploratory_replay_not_admitted": {
+            "allowed": exploratory_replay[0],
+            "action": exploratory_replay[1],
+            "reason": exploratory_replay[3],
+            "admission": exploratory_replay[4],
+        },
         "default_safe_path": {
             "allowed": default_safe[0],
             "action": default_safe[1],
             "reason": default_safe[3],
             "admission": default_safe[4],
+        },
+        "forced_runtime_fallback": {
+            "allowed": forced_runtime_fallback[0],
+            "action": forced_runtime_fallback[1],
+            "reason": forced_runtime_fallback[3],
+            "admission": forced_runtime_fallback[4],
+        },
+        "control_forced_runtime_fallback": {
+            "allowed": control_forced_runtime_fallback[0],
+            "action": control_forced_runtime_fallback[1],
+            "reason": control_forced_runtime_fallback[3],
+            "admission": control_forced_runtime_fallback[4],
         },
         "seeded_policy_ignored_without_live_observations": {
             "allowed": seeded_ignored[0],
@@ -216,7 +254,14 @@ def main() -> None:
     assert capture_only[0] is True, capture_only
     assert capture_only[3] == "live_capture_only_until_admitted", capture_only
     assert capture_only[4]["live_capture_only"] is True, capture_only
+    assert exploratory_replay[0] is True, exploratory_replay
+    assert exploratory_replay[3] == "live_explore_replay_until_admitted", exploratory_replay
+    assert exploratory_replay[4]["admitted_templates"] == 0, exploratory_replay
     assert default_safe[0] is True, default_safe
+    assert forced_runtime_fallback[0] is False, forced_runtime_fallback
+    assert forced_runtime_fallback[3] == "forced_shadow_fallback", forced_runtime_fallback
+    assert control_forced_runtime_fallback[0] is False, control_forced_runtime_fallback
+    assert control_forced_runtime_fallback[3] == "forced_shadow_fallback", control_forced_runtime_fallback
     assert seeded_ignored[0] is False, seeded_ignored
     assert seeded_ignored[3] == "live_explore_fallback_until_admitted", seeded_ignored
     out = Path(args.output)

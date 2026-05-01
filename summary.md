@@ -1,6 +1,6 @@
 # GraphAdmit Summary and Code/Experiment Review
 
-Date: 2026-04-30
+Date: 2026-05-01
 
 This document summarizes what GraphAdmit currently does, what the code actually implements, what the experiments show, and how to interpret the comparisons against vLLM, SGLang, and raw Torch CUDA Graphs. It is written as the concise artifact-level summary for reviewers and future users.
 
@@ -131,7 +131,52 @@ graphadmit vllm-patch --target external/FlowPrefill --apply
 
 ## 4. Experiment Results
 
-### 4.1 Qwen3.5-35B-A3B Hybrid Attention + MoE
+### 4.1 Trusted Same-Engine / Isolated-Probe Results
+
+The 2026-05-01 update tightened the correctness contract.  Positive admission
+now requires trusted graph replay evidence from the same engine when possible.
+For architectures where unsafe exploratory replay can crash the CUDA context,
+the harness probes in a child process and converts a crash into trusted
+negative observations before starting the measured serving engine.
+
+| Model / workload | System | Avg ms | P50 ms | P95 ms | P99 ms | Speedup | Correctness evidence |
+|---|---|---:|---:|---:|---:|---:|---|
+| Qwen3-32B, bs64 | vLLM max512 CP | 43.66 | 44.22 | 114.24 | 127.32 | 1.00x | whole-run identical |
+| Qwen3-32B, bs64 | GraphAdmit strict same-engine | 40.29 | 37.96 | 112.94 | 126.92 | 1.08x | 31/31 trusted observations correct |
+| Qwen3-32B, bs128 | vLLM max512 CP | 41.13 | 37.36 | 111.46 | 125.08 | 1.00x | whole-run identical |
+| Qwen3-32B, bs128 | GraphAdmit strict same-engine | 38.79 | 36.79 | 111.87 | 124.83 | 1.06x | 62/62 trusted observations correct |
+| Qwen3-235B, bs16 | vLLM max512 CP | 150.64 | 211.55 | 236.07 | 243.44 | 1.00x | whole-run identical |
+| Qwen3-235B, bs16 | GraphAdmit strict same-engine | 56.04 | 51.49 | 126.56 | 135.21 | 2.69x | 10/10 trusted observations correct |
+| Qwen3.5-35B, bs16 | vLLM max512 CP | 119.90 | 117.90 | 144.74 | 155.20 | 1.00x | whole-run identical |
+| Qwen3.5-35B, bs16 | GraphAdmit isolated-probe fail-closed | 86.69 | 104.11 | 129.96 | 136.49 | 1.38x | unsafe extra templates blacklisted; one small/default-path diff |
+
+SGLang comparison points:
+
+| Model / workload | SGLang path | Avg ms | P50 ms | P95 ms | P99 ms |
+|---|---|---:|---:|---:|---:|
+| Qwen3-235B, bs16 | piecewise CUDA Graph | 58.37 | 55.51 | 127.29 | 132.81 |
+| Qwen3.5-35B, bs16 | default CUDA Graph | 116.47 | 114.61 | 132.17 | 135.07 |
+| Qwen3.5-35B, bs16 | piecewise CUDA Graph | 286.58 | 249.53 | 702.29 | 790.08 |
+
+Interpretation:
+
+- Qwen3-235B is the strongest strict result: GraphAdmit is 2.69x faster than
+  vLLM CP and slightly faster than local SGLang piecewise on mean/P95, with
+  slightly worse P99.
+- Qwen3-32B gains are modest but clean and token-identical.
+- Qwen3.5 cannot honestly keep the old 42.82 ms primary claim under strict
+  replay validation.  Unsafe extra-template replay crashed, so the correct
+  system behavior is to blacklist those templates and run fail-closed.  Even
+  then, the measured path is 1.38x faster than vLLM CP and faster on average
+  than local SGLang default CG.
+
+Full report:
+
+```text
+results/trusted_same_engine_replay_2026_05_01.md
+```
+
+### 4.2 Legacy Qwen3.5-35B-A3B Hybrid Attention + MoE
 
 Model:
 
@@ -152,15 +197,15 @@ This is the most important stress test because the model has MoE plus hybrid lin
 | vLLM eager/no-CG | 314.66 | 137.22 | 904.00 | 991.73 | 74.0 |
 | vLLM max512 CP | 254.59 | 115.63 | 759.81 | 811.99 | 82.7 |
 | Blind extended CG | 64.25 | 39.82 | 143.41 | 351.57 | 82.0 |
-| GraphAdmit live runtime | 42.82 | 40.25 | 56.68 | 60.02 | 82.8 |
+| GraphAdmit legacy shadow-baseline runtime | 42.82 | 40.25 | 56.68 | 60.02 | 82.8 |
 | SGLang default CG | 116.47 | 114.61 | 132.17 | 135.07 | 50.6 |
 | SGLang piecewise CG | 286.58 | 249.53 | 702.29 | 790.08 | 57.8 |
 
 Interpretation:
 
-- GraphAdmit is 5.95x faster than vLLM max512 CP on average.
-- GraphAdmit is 2.72x faster than SGLang default CG on average for this hybrid/MoE workload.
-- GraphAdmit has much better tail than blind extended CG: P95 `56.68 ms` vs `143.41 ms`, P99 `60.02 ms` vs `351.57 ms`.
+- This legacy run is 5.95x faster than vLLM max512 CP on average.
+- It is 2.72x faster than SGLang default CG on average for this hybrid/MoE workload.
+- It has much better tail than blind extended CG: P95 `56.68 ms` vs `143.41 ms`, P99 `60.02 ms` vs `351.57 ms`.
 - The policy used here is a generic PCG-family exploration policy, not learned from Qwen3.5 trace data.
 
 Online admission evidence:
@@ -173,11 +218,15 @@ Online admission evidence:
 
 Correctness caveat:
 
-- The admitted extra templates were token-correct against shadow CP fallback.
-- Whole-run token identity across all vLLM modes is false for Qwen3.5 because small/default paths also differ by one token across vLLM modes. This is a backend-level nondeterminism issue, not evidence that the admitted extra templates are wrong.
-- Therefore the safe claim is "admitted GraphAdmit templates were token-correct"; do not claim whole-run token identity for Qwen3.5 until the backend nondeterminism is isolated.
+- This is now a legacy optimistic result because it trusts shadow-baseline
+  evidence rather than strict same-engine replay validation.
+- The strict isolated-probe run found that Qwen3.5 extra templates can crash
+  during unsafe replay.  The system now converts that into blacklist evidence
+  and falls back.
+- Therefore the primary Qwen3.5 claim should be fail-closed safety plus the
+  stricter 86.69 ms result, not the old 42.82 ms number.
 
-### 4.2 Qwen3-235B-A22B
+### 4.3 Qwen3-235B-A22B
 
 Workload:
 
@@ -185,18 +234,19 @@ Workload:
 results/qwentrace_morspec_qwen_16_4096.json
 ```
 
-Best PCG-tail comparison:
+Best strict same-engine comparison:
 
 | System | Avg ms | P50 ms | P95 ms | P99 ms | Init s | Correct |
 |---|---:|---:|---:|---:|---:|---|
-| vLLM max512 CP | 141.29 | 213.00 | 239.79 | 246.08 | 140.93 | true |
+| vLLM max512 CP | 150.64 | 211.55 | 236.07 | 243.44 | 144.83 | true |
 | SGLang piecewise CG | 58.37 | 55.51 | 127.29 | 132.81 | 201.36 | true |
-| GraphAdmit PCG-tail | 55.48 | 51.96 | 125.22 | 131.12 | 166.06 | true |
+| GraphAdmit strict same-engine | 56.04 | 51.49 | 126.56 | 135.21 | 138.12 | true |
 
 Interpretation:
 
-- GraphAdmit is 2.55x faster than vLLM max512 CP on average.
-- GraphAdmit slightly beats SGLang PCG on this run: 1.05x average, 1.02x P95, 1.01x P99.
+- GraphAdmit is 2.69x faster than vLLM max512 CP on average.
+- GraphAdmit slightly beats SGLang PCG on this run by average and P95, while
+  SGLang is slightly better at P99.
 - The important point is not a huge latency margin over SGLang; the important point is that GraphAdmit reaches SGLang-level performance with fail-closed admission and fewer selected templates.
 
 Earlier residual-capture result:
@@ -205,7 +255,7 @@ Earlier residual-capture result:
 - Tail was near-neutral.
 - This showed the mid-token MoE window had high value.
 
-### 4.3 Qwen3-32B Dense
+### 4.4 Qwen3-32B Dense
 
 Workload:
 
@@ -213,22 +263,23 @@ Workload:
 results/qwentrace_morspec_qwen_64_4096.json
 ```
 
-Best PCG-tail comparison:
+Best strict same-engine comparison:
 
 | System | Avg ms | P50 ms | P95 ms | P99 ms | Init s | Correct |
 |---|---:|---:|---:|---:|---:|---|
-| vLLM max512 CP | 43.37 | 44.50 | 113.69 | 126.89 | 71.40 | true |
+| vLLM max512 CP, bs64 | 43.66 | 44.22 | 114.24 | 127.32 | 72.19 | true |
 | SGLang piecewise CG | 43.29 | 40.74 | 111.27 | 123.17 | 91.38 | true |
-| GraphAdmit PCG-tail | 38.99 | 34.73 | 115.85 | 127.24 | 86.18 | true |
+| GraphAdmit strict same-engine, bs64 | 40.29 | 37.96 | 112.94 | 126.92 | 66.91 | true |
+| vLLM max512 CP, bs128 | 41.13 | 37.36 | 111.46 | 125.08 | 71.86 | true |
+| GraphAdmit strict same-engine, bs128 | 38.79 | 36.79 | 111.87 | 124.83 | 65.97 | true |
 
 Interpretation:
 
-- GraphAdmit is 1.11x faster than vLLM max512 CP on average.
-- GraphAdmit is 1.11x faster than SGLang PCG on average.
-- SGLang still has slightly better P95/P99 on this dense trace.
-- So the honest claim is "better mean useful coverage, tail not yet universally better."
+- GraphAdmit is 1.08x faster than vLLM max512 CP on bs64 and 1.06x faster on bs128.
+- Against the local SGLang PCG bs64 result, GraphAdmit is better on mean and P95 but still slightly worse on P99.
+- So the honest claim is "clean useful-coverage gain, tail not universally dominant."
 
-### 4.4 dInfer / LLaDA2.0-mini
+### 4.5 dInfer / LLaDA2.0-mini
 
 Representative validated run:
 
@@ -244,7 +295,7 @@ Interpretation:
 - GraphAdmit-style admission turns it into a correct graph path by requiring decoded-token validation, template budget, periodic validation, and memory guard.
 - This is strong evidence that "correctness-aware admission" is necessary for dynamic function workloads.
 
-### 4.5 Torch CUDA Graph Microbenchmark
+### 4.6 Torch CUDA Graph Microbenchmark
 
 File:
 
@@ -288,7 +339,9 @@ GraphAdmit improves this by:
 - rejecting templates with low useful rate, weak saving, token mismatch, or tail regression;
 - falling back instead of forcing semantic dynamicity into graph replay.
 
-This is why GraphAdmit beats vLLM strongly on Qwen3.5 and Qwen3-235B, and modestly on Qwen3-32B.
+This is why GraphAdmit beats vLLM strongly on Qwen3-235B, modestly on
+Qwen3-32B, and still improves Qwen3.5 average latency after blacklisting unsafe
+hybrid/MoE extra templates.
 
 ## 6. Why GraphAdmit Can Beat SGLang, and Where SGLang Is Still Strong
 
@@ -310,8 +363,9 @@ GraphAdmit can beat SGLang when:
 
 Evidence:
 
-- Qwen3.5 hybrid/MoE: GraphAdmit live runtime `42.82 ms`, SGLang default CG `116.47 ms`, SGLang piecewise CG `286.58 ms`.
-- Qwen3-235B PCG-tail: GraphAdmit `55.48 ms`, SGLang PCG `58.37 ms`.
+- Qwen3.5 hybrid/MoE strict fail-closed: GraphAdmit `86.69 ms`, SGLang default CG `116.47 ms`, SGLang piecewise CG `286.58 ms`.
+- Qwen3.5 legacy optimistic shadow-baseline: `42.82 ms`; useful for diagnosing potential, not the primary correctness claim.
+- Qwen3-235B strict same-engine: GraphAdmit `56.04 ms`, SGLang PCG `58.37 ms`.
 
 But SGLang remains strong:
 
@@ -347,11 +401,11 @@ But SGLang remains strong:
 | Area | Current limitation |
 |---|---|
 | vLLM dynamic graph capture | vLLM capture sizes are still fixed at engine init; online-learned residual templates usually need a next engine start unless pre-captured exploration templates exist |
-| Same-request shadow fallback | Current live admission consumes observation streams and shadow baseline evidence; fully paired same-request in-engine graph/fallback timing is not complete |
+| Same-request shadow fallback | Same-engine graph/fallback validation exists for single-request probes, and isolated child-process probing catches crashes; full always-on production shadowing with low overhead is still prototype work |
 | MoE dispatch templates | Routed-expert metadata is profiled and abstracted, but fused-MoE/all-to-all dispatch is not yet selected by GraphAdmit templates |
 | Function-level partial graph | Runtime abstraction exists; real hybrid attention/diffusion branch integration is not complete |
 | Scheduler | Guarded scheduler exists; positive tail-safe E2E benefit is not yet proven |
-| Qwen3.5 whole-run correctness | Extra templates are token-correct; whole-run token identity is blocked by backend-level nondeterminism in small/default paths |
+| Qwen3.5 whole-run correctness | Strict mode blacklists unsafe extra templates; one small/default-path output difference remains a backend nondeterminism caveat |
 | SGLang comparison | Strong but workload-dependent; GraphAdmit should not claim universal dominance |
 
 ## 8. Main Commands Used
@@ -411,7 +465,37 @@ graphadmit make-policy \
   --output results/runtime_policy_vllm_qwen35_35b_generic_pcg_live.json
 ```
 
-### 8.4 Qwen3.5 vLLM / GraphAdmit E2E
+### 8.4 Qwen3.5 vLLM / GraphAdmit Strict Isolated Probe
+
+```bash
+conda activate crossstage
+CUDA_VISIBLE_DEVICES=0,1,2,3 python benchmarks/vllm_flowprefill_workload.py \
+  --workload results/qwentrace_morspec_qwen_16_4096.json \
+  --model /mnt/models/Qwen3.5-35B-A3B \
+  --tp-size 4 --max-model-len 4096 --gpu-memory-utilization 0.72 \
+  --max-tokens 1 --planner-mode hybrid --our-max 4096 \
+  --skip-eager --configs cp,runtime_cp \
+  --runtime-policy results/runtime_policy_vllm_qwen35_35b_generic_pcg_live.json \
+  --runtime-base-capture-size 512 \
+  --cudagraph-mode FULL_AND_PIECEWISE \
+  --live-admission --live-admission-explore \
+  --live-admission-min-samples 2 \
+  --live-admission-min-useful-rate 0.67 \
+  --live-admission-min-saving-ms 0.5 \
+  --live-admission-max-p95-regression-ms 5.0 \
+  --live-capture \
+  --live-admission-observations results/live_obs_qwen35_isolated_probe_16_20260501.jsonl \
+  --live-admission-clear-observations \
+  --live-admission-template-id range \
+  --live-admission-isolated-probe \
+  --live-admission-isolated-probe-timeout-s 300 \
+  --disable-prefix-caching \
+  --output results/vllm_qwen35_isolated_probe_16_20260501.json \
+  --profile-prefix results/vllm_qwen35_isolated_probe_16_20260501 \
+  --max-num-seqs 8
+```
+
+### 8.5 Qwen3.5 Legacy vLLM / GraphAdmit Shadow-Baseline
 
 ```bash
 conda activate crossstage
@@ -434,7 +518,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 python benchmarks/vllm_flowprefill_workload.py \
   --max-num-seqs 8
 ```
 
-### 8.5 Qwen3.5 vLLM Eager Reference
+### 8.6 Qwen3.5 vLLM Eager Reference
 
 ```bash
 conda activate crossstage
@@ -449,7 +533,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 python benchmarks/vllm_flowprefill_workload.py \
   --max-num-seqs 8
 ```
 
-### 8.6 Qwen3.5 SGLang Baselines
+### 8.7 Qwen3.5 SGLang Baselines
 
 ```bash
 source /home/zhujianian/miniconda3/etc/profile.d/conda.sh
@@ -471,7 +555,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 python benchmarks/sglang_flowprefill_workload.py \
   --output results/sglang_qwen35_35b_16_piecewise.json
 ```
 
-### 8.7 Qwen3-235B GraphAdmit PCG-Tail
+### 8.8 Qwen3-235B GraphAdmit Strict Same-Engine
 
 ```bash
 conda activate crossstage
@@ -489,11 +573,23 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python benchmarks/vllm_flowprefill_workload
   --fixed-metadata-arena-max-reqs 8 \
   --full-key-collapse \
   --enable-return-routed-experts \
-  --output results/vllm_qwen3_235b_16_pcg_tail_learned_e2e.json \
-  --profile-prefix results/vllm_qwen3_235b_16_pcg_tail_learned_e2e
+  --live-admission \
+  --live-admission-explore \
+  --live-admission-min-samples 2 \
+  --live-admission-min-useful-rate 0.67 \
+  --live-admission-min-saving-ms 0.5 \
+  --live-admission-max-p95-regression-ms 5.0 \
+  --live-capture \
+  --live-admission-observations results/live_obs_qwen3_235b_pcg_tail_sameengine_range_16_20260501.jsonl \
+  --live-admission-clear-observations \
+  --live-admission-template-id range \
+  --live-admission-same-engine-validate \
+  --disable-prefix-caching \
+  --output results/vllm_qwen3_235b_pcg_tail_sameengine_range_16_20260501.json \
+  --profile-prefix results/vllm_qwen3_235b_pcg_tail_sameengine_range_16_20260501
 ```
 
-### 8.8 Qwen3-32B GraphAdmit PCG-Tail
+### 8.9 Qwen3-32B GraphAdmit Strict Same-Engine bs64
 
 ```bash
 conda activate crossstage
@@ -502,19 +598,64 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 python benchmarks/vllm_flowprefill_workload.py \
   --model /mnt/models/Qwen3-32B \
   --tp-size 4 --max-model-len 4096 --gpu-memory-utilization 0.8 \
   --max-tokens 1 --planner-mode hybrid --our-max 4096 \
-  --extra-capture-sizes 768,832,896,960,1536,2304 \
+  --extra-capture-sizes 640,768,832,896,1024 \
   --skip-eager --configs cp,runtime_cp \
-  --runtime-policy results/runtime_policy_vllm_qwen3_32b_64_pcg_tail_learned.json \
+  --runtime-policy results/runtime_policy_vllm_qwen3_32b_64_useful_auto_1024.json \
   --runtime-base-capture-size 512 \
   --cudagraph-mode FULL_AND_PIECEWISE \
   --fixed-metadata-arena \
   --fixed-metadata-arena-max-reqs 8 \
   --full-key-collapse \
-  --output results/vllm_qwen3_32b_64_pcg_tail_learned_e2e.json \
-  --profile-prefix results/vllm_qwen3_32b_64_pcg_tail_learned_e2e
+  --live-admission \
+  --live-admission-explore \
+  --live-admission-min-samples 2 \
+  --live-admission-min-useful-rate 0.67 \
+  --live-admission-min-saving-ms 0.5 \
+  --live-admission-max-p95-regression-ms 5.0 \
+  --live-capture \
+  --live-admission-observations results/live_obs_qwen3_32b_sameengine_range_bs64_20260501.jsonl \
+  --live-admission-clear-observations \
+  --live-admission-template-id range \
+  --live-admission-same-engine-validate \
+  --disable-prefix-caching \
+  --output results/vllm_qwen3_32b_sameengine_range_bs64_20260501.json \
+  --profile-prefix results/vllm_qwen3_32b_sameengine_range_bs64_20260501
 ```
 
-### 8.9 Qwen3 SGLang PCG Baselines
+### 8.10 Qwen3-32B GraphAdmit Strict Same-Engine bs128
+
+```bash
+conda activate crossstage
+CUDA_VISIBLE_DEVICES=0,1,2,3 python benchmarks/vllm_flowprefill_workload.py \
+  --workload results/qwentrace_morspec_qwen_128_4096.json \
+  --model /mnt/models/Qwen3-32B \
+  --tp-size 4 --max-model-len 4096 --gpu-memory-utilization 0.8 \
+  --max-tokens 1 --planner-mode hybrid --our-max 1024 \
+  --extra-capture-sizes 640,768,832,896,1024 \
+  --skip-eager --configs cp,runtime_cp \
+  --runtime-policy results/runtime_policy_vllm_qwen3_32b_64_useful_auto_1024.json \
+  --runtime-base-capture-size 512 \
+  --cudagraph-mode FULL_AND_PIECEWISE \
+  --fixed-metadata-arena \
+  --fixed-metadata-arena-max-reqs 8 \
+  --full-key-collapse \
+  --live-admission \
+  --live-admission-explore \
+  --live-admission-min-samples 2 \
+  --live-admission-min-useful-rate 0.67 \
+  --live-admission-min-saving-ms 0.5 \
+  --live-admission-max-p95-regression-ms 5.0 \
+  --live-capture \
+  --live-admission-observations results/live_obs_qwen3_32b_sameengine_range_bs128_20260501.jsonl \
+  --live-admission-clear-observations \
+  --live-admission-template-id range \
+  --live-admission-same-engine-validate \
+  --disable-prefix-caching \
+  --output results/vllm_qwen3_32b_sameengine_range_bs128_20260501.json \
+  --profile-prefix results/vllm_qwen3_32b_sameengine_range_bs128_20260501
+```
+
+### 8.11 Qwen3 SGLang PCG Baselines
 
 ```bash
 source /home/zhujianian/miniconda3/etc/profile.d/conda.sh
@@ -546,7 +687,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python benchmarks/sglang_flowprefill_worklo
   --output results/sglang_qwen3_235b_16_piecewise_e2e_0510post1_warm3.json
 ```
 
-### 8.10 Residual Capture Microbenchmark
+### 8.12 Residual Capture Microbenchmark
 
 ```bash
 source /home/zhujianian/miniconda3/etc/profile.d/conda.sh
@@ -556,7 +697,7 @@ python benchmarks/compositional_cuda_graph_microbench.py \
   --repeat 30 --warmups 3
 ```
 
-### 8.11 dInfer Admission
+### 8.13 dInfer Admission
 
 ```bash
 conda activate crossstage
@@ -583,14 +724,14 @@ python benchmarks/dinfer_qwentrace_offline.py \
   --output results/dinfer_qwentrace_llada2_mini_32_runtime_admission_memguard_latest.json
 ```
 
-### 8.12 Failure / Useful-Coverage Analysis
+### 8.14 Failure / Useful-Coverage Analysis
 
 ```bash
 python benchmarks/analyze_cuda_graph_failure_modes.py \
   --output-dir results/cg_failure_analysis_latest
 ```
 
-### 8.13 Key-Collapse Analysis
+### 8.15 Key-Collapse Analysis
 
 ```bash
 python benchmarks/analyze_vllm_keycollapse_runtime.py \
@@ -609,16 +750,17 @@ The safe claim is:
 
 Concrete supported claims:
 
-- vLLM/Qwen3.5 hybrid-MoE: 5.95x average speedup over vLLM max512 CP and 2.72x over SGLang default CG for the tested trace, with admitted extra-template observations token-correct.
-- vLLM/Qwen3-235B: 2.55x average speedup over vLLM max512 CP and slight win over SGLang PCG in the PCG-tail run.
-- vLLM/Qwen3-32B: 1.11x average speedup over vLLM max512 CP and SGLang PCG, with slightly worse tail than SGLang.
+- vLLM/Qwen3-235B: 2.69x average speedup over vLLM max512 CP with strict same-engine validation; mean/P95 slightly beat local SGLang PCG, P99 slightly loses.
+- vLLM/Qwen3-32B: 1.06x-1.08x average speedup over vLLM max512 CP with strict same-engine validation and whole-run token identity.
+- vLLM/Qwen3.5 hybrid-MoE: strict isolated probing detects unsafe extra-template replay and blacklists it; the fail-closed measured path is 1.38x faster than vLLM CP and faster on average than local SGLang default CG, with one small/default-path nondeterminism caveat.
+- Legacy Qwen3.5 shadow-baseline: 5.95x over vLLM CP and 2.72x over SGLang default, useful as potential evidence but not the primary correctness claim.
 - dInfer/LLaDA2.0-mini: 1.58x to 1.71x speedup with decoded-token correctness.
 - Torch microbench: exact-shape naive CG is weak; compositional packing/padding/residual capture explain why dynamic workloads need more than a fixed graph list.
 
 Claims to avoid:
 
 - Do not claim universal dominance over SGLang.
-- Do not claim whole-run token identity for Qwen3.5 yet.
+- Do not claim whole-run token identity or admitted extra-template replay for Qwen3.5 strict mode yet.
 - Do not claim scheduler-induced tail wins are proven.
 - Do not claim MoE fused-kernel/all-to-all dispatch template selection is complete.
 - Do not claim arbitrary dynamic functions are automatically graphable.
@@ -628,6 +770,6 @@ Claims to avoid:
 The current system is already a strong artifact for the paper story:
 
 - It is better than vLLM's default/static CUDA Graph path because it recovers useful templates beyond the fixed graph family and rejects bad graph paths.
-- It can match or beat SGLang PCG in important dynamic cases, especially Qwen3.5 hybrid/MoE and Qwen3-235B PCG-tail, but SGLang remains a serious baseline with better tail on Qwen3-32B.
+- It can match or beat SGLang PCG in important dynamic cases, especially Qwen3-235B strict same-engine.  On Qwen3.5, the strongest claim is safer: GraphAdmit refuses unsafe hybrid/MoE extra graphs and still beats local SGLang default on average, while SGLang remains a serious baseline.
 - The Torch microbenchmark should be framed as mechanism evidence, not an end-to-end serving win.
 - The most defensible framing is "safe online staticity recovery", not "all dynamicity goes into CUDA Graph."

@@ -1,0 +1,1813 @@
+{
+  "partial": false,
+  "workload": "results/qwentrace_morspec_qwen_64_4096.json",
+  "model": "/mnt/models/Qwen3-32B",
+  "reference_config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE",
+  "planner": {
+    "mode": "hybrid",
+    "note": "vLLM default small graphs plus explicit latency-calibrated long graphs",
+    "bucket_sizes": [
+      1,
+      2,
+      4,
+      8,
+      16,
+      24,
+      32,
+      40,
+      48,
+      56,
+      64,
+      72,
+      80,
+      88,
+      96,
+      104,
+      112,
+      120,
+      128,
+      136,
+      144,
+      152,
+      160,
+      168,
+      176,
+      184,
+      192,
+      200,
+      208,
+      216,
+      224,
+      232,
+      240,
+      248,
+      256,
+      272,
+      288,
+      304,
+      320,
+      336,
+      352,
+      368,
+      384,
+      400,
+      416,
+      432,
+      448,
+      464,
+      480,
+      496,
+      512,
+      640,
+      768,
+      832,
+      896,
+      1024
+    ],
+    "dp_candidate_bucket_sizes": [
+      72,
+      80,
+      88,
+      96,
+      104,
+      128,
+      208,
+      320,
+      336,
+      352,
+      416,
+      464,
+      496,
+      768,
+      832,
+      896,
+      960,
+      1024
+    ],
+    "explicit_extra_capture_sizes": [
+      640,
+      768,
+      832,
+      896,
+      1024
+    ],
+    "max_extra_capture_size": 1024,
+    "max_num_seqs": null,
+    "template_scheduler": false,
+    "template_scheduler_max_wait_ms": 0.0,
+    "template_scheduler_max_scan": 16,
+    "batch_mode": false,
+    "allow_batch_extra_capture": true,
+    "fixed_metadata_arena": true,
+    "fixed_metadata_arena_max_reqs": 8,
+    "full_key_collapse": true,
+    "runtime_capture_bucket_sizes": [
+      1,
+      2,
+      4,
+      8,
+      16,
+      24,
+      32,
+      40,
+      48,
+      56,
+      64,
+      72,
+      80,
+      88,
+      96,
+      104,
+      112,
+      120,
+      128,
+      136,
+      144,
+      152,
+      160,
+      168,
+      176,
+      184,
+      192,
+      200,
+      208,
+      216,
+      224,
+      232,
+      240,
+      248,
+      256,
+      272,
+      288,
+      304,
+      320,
+      336,
+      352,
+      368,
+      384,
+      400,
+      416,
+      432,
+      448,
+      464,
+      480,
+      496,
+      512,
+      640,
+      768,
+      832,
+      896,
+      1024
+    ],
+    "runtime_capture_note": "vLLM default small graphs plus explicit latency-calibrated long graphs",
+    "dp_expected_hit_rate": 0.875,
+    "dp_expected_padding_waste_pct": 1.7387788111605338,
+    "dp_expected_fallback_count": 8,
+    "dp_total_graph_memory_mb": 188.79999999999998,
+    "dp_total_warmup_time_s": 1.0800000000000005
+  },
+  "workload_stats": {
+    "n": 64,
+    "p50": 748.5,
+    "p95": 2722.649999999996,
+    "gt512": 39,
+    "gt2048": 5
+  },
+  "lengths": [
+    791,
+    756,
+    805,
+    750,
+    3023,
+    494,
+    409,
+    93,
+    83,
+    745,
+    2829,
+    886,
+    79,
+    859,
+    208,
+    752,
+    452,
+    345,
+    758,
+    783,
+    757,
+    1012,
+    2039,
+    88,
+    746,
+    411,
+    311,
+    121,
+    1332,
+    3281,
+    82,
+    746,
+    75,
+    742,
+    68,
+    784,
+    830,
+    80,
+    76,
+    2120,
+    102,
+    72,
+    203,
+    71,
+    776,
+    947,
+    871,
+    745,
+    796,
+    70,
+    758,
+    747,
+    735,
+    754,
+    948,
+    886,
+    881,
+    776,
+    3210,
+    1378,
+    70,
+    789,
+    325,
+    89
+  ],
+  "results": [
+    {
+      "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE",
+      "init_s": 72.19473671074957,
+      "avg_ms": 43.660974595695734,
+      "p50_ms": 44.22367224469781,
+      "p95_ms": 114.24003932625041,
+      "p99_ms": 127.31754509732127,
+      "batch_total_ms": null,
+      "per_req": [
+        {
+          "tok": 791,
+          "ms": 42.214387096464634,
+          "output_token_ids": [
+            566
+          ],
+          "output_text": " he",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 756,
+          "ms": 55.51306623965502,
+          "output_token_ids": [
+            220
+          ],
+          "output_text": " ",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 805,
+          "ms": 50.356836058199406,
+          "output_token_ids": [
+            11
+          ],
+          "output_text": ",",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 750,
+          "ms": 45.6673102453351,
+          "output_token_ids": [
+            51734
+          ],
+          "output_text": " repaired",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 3023,
+          "ms": 124.51254762709141,
+          "output_token_ids": [
+            1246
+          ],
+          "output_text": " how",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 494,
+          "ms": 27.783065102994442,
+          "output_token_ids": [
+            50122
+          ],
+          "output_text": " gallons",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 409,
+          "ms": 24.58012104034424,
+          "output_token_ids": [
+            23853
+          ],
+          "output_text": " containers",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 93,
+          "ms": 20.26545163244009,
+          "output_token_ids": [
+            1817
+          ],
+          "output_text": " each",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 83,
+          "ms": 20.120990462601185,
+          "output_token_ids": [
+            1059
+          ],
+          "output_text": " her",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 745,
+          "ms": 45.474860817193985,
+          "output_token_ids": [
+            15
+          ],
+          "output_text": "0",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 2829,
+          "ms": 118.09257324784994,
+          "output_token_ids": [
+            681
+          ],
+          "output_text": "ance",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 886,
+          "ms": 59.56085026264191,
+          "output_token_ids": [
+            323
+          ],
+          "output_text": " and",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 79,
+          "ms": 20.371710881590843,
+          "output_token_ids": [
+            22601
+          ],
+          "output_text": " pens",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 859,
+          "ms": 57.362182065844536,
+          "output_token_ids": [
+            1521
+          ],
+          "output_text": " did",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 208,
+          "ms": 22.936505265533924,
+          "output_token_ids": [
+            13
+          ],
+          "output_text": ".",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 752,
+          "ms": 48.19410294294357,
+          "output_token_ids": [
+            3701
+          ],
+          "output_text": " card",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 452,
+          "ms": 24.758875370025635,
+          "output_token_ids": [
+            315
+          ],
+          "output_text": " of",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 345,
+          "ms": 21.433547139167786,
+          "output_token_ids": [
+            32
+          ],
+          "output_text": "A",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 758,
+          "ms": 45.02232093364,
+          "output_token_ids": [
+            5005
+          ],
+          "output_text": " Then",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 783,
+          "ms": 44.159757904708385,
+          "output_token_ids": [
+            13
+          ],
+          "output_text": ".",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 757,
+          "ms": 45.093066059052944,
+          "output_token_ids": [
+            17
+          ],
+          "output_text": "2",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 1012,
+          "ms": 53.95994894206524,
+          "output_token_ids": [
+            1803
+          ],
+          "output_text": " car",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 2039,
+          "ms": 79.70005553215742,
+          "output_token_ids": [
+            525
+          ],
+          "output_text": " are",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 88,
+          "ms": 19.101690500974655,
+          "output_token_ids": [
+            30259
+          ],
+          "output_text": " Kyle",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 746,
+          "ms": 44.791470281779766,
+          "output_token_ids": [
+            1246
+          ],
+          "output_text": " how",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 411,
+          "ms": 24.239390157163143,
+          "output_token_ids": [
+            264
+          ],
+          "output_text": " a",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 311,
+          "ms": 23.353821597993374,
+          "output_token_ids": [
+            264
+          ],
+          "output_text": " a",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 121,
+          "ms": 20.38623858243227,
+          "output_token_ids": [
+            13
+          ],
+          "output_text": ".",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 1332,
+          "ms": 67.31047388166189,
+          "output_token_ids": [
+            13
+          ],
+          "output_text": ".",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 3281,
+          "ms": 127.38051917403936,
+          "output_token_ids": [
+            13
+          ],
+          "output_text": ".",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 82,
+          "ms": 21.1770236492157,
+          "output_token_ids": [
+            51931
+          ],
+          "output_text": " fries",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 746,
+          "ms": 37.194167263805866,
+          "output_token_ids": [
+            5700
+          ],
+          "output_text": " movie",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 75,
+          "ms": 18.837532959878445,
+          "output_token_ids": [
+            15
+          ],
+          "output_text": "0",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 742,
+          "ms": 44.16494723409414,
+          "output_token_ids": [
+            19507
+          ],
+          "output_text": " baseball",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 68,
+          "ms": 21.199509501457214,
+          "output_token_ids": [
+            26938
+          ],
+          "output_text": " beds",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 784,
+          "ms": 46.05622682720423,
+          "output_token_ids": [
+            13
+          ],
+          "output_text": ".",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 830,
+          "ms": 49.48569368571043,
+          "output_token_ids": [
+            220
+          ],
+          "output_text": " ",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 80,
+          "ms": 18.589154817163944,
+          "output_token_ids": [
+            11
+          ],
+          "output_text": ",",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 76,
+          "ms": 18.521309830248356,
+          "output_token_ids": [
+            13
+          ],
+          "output_text": ".",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 2120,
+          "ms": 92.40901377052069,
+          "output_token_ids": [
+            576
+          ],
+          "output_text": " The",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 102,
+          "ms": 20.88715508580208,
+          "output_token_ids": [
+            2291
+          ],
+          "output_text": " pay",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 72,
+          "ms": 18.57603620737791,
+          "output_token_ids": [
+            32313
+          ],
+          "output_text": "Okay",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 203,
+          "ms": 19.633475691080093,
+          "output_token_ids": [
+            432
+          ],
+          "output_text": " it",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 71,
+          "ms": 19.73753608763218,
+          "output_token_ids": [
+            13
+          ],
+          "output_text": ".",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 776,
+          "ms": 45.842332765460014,
+          "output_token_ids": [
+            264
+          ],
+          "output_text": " a",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 947,
+          "ms": 61.238341964781284,
+          "output_token_ids": [
+            13
+          ],
+          "output_text": ".",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 871,
+          "ms": 53.72538696974516,
+          "output_token_ids": [
+            220
+          ],
+          "output_text": " ",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 745,
+          "ms": 39.02559448033571,
+          "output_token_ids": [
+            2115
+          ],
+          "output_text": " left",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 796,
+          "ms": 45.12311704456806,
+          "output_token_ids": [
+            220
+          ],
+          "output_text": " ",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 70,
+          "ms": 19.43359151482582,
+          "output_token_ids": [
+            374
+          ],
+          "output_text": " is",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 758,
+          "ms": 37.54084371030331,
+          "output_token_ids": [
+            20
+          ],
+          "output_text": "5",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 747,
+          "ms": 46.12574074417353,
+          "output_token_ids": [
+            220
+          ],
+          "output_text": " ",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 735,
+          "ms": 45.1228367164731,
+          "output_token_ids": [
+            2114
+          ],
+          "output_text": " home",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 754,
+          "ms": 46.330188401043415,
+          "output_token_ids": [
+            279
+          ],
+          "output_text": " the",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 948,
+          "ms": 51.49010941386223,
+          "output_token_ids": [
+            1246
+          ],
+          "output_text": " how",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 886,
+          "ms": 44.282397255301476,
+          "output_token_ids": [
+            1939
+          ],
+          "output_text": "?\n\n",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 881,
+          "ms": 50.197518430650234,
+          "output_token_ids": [
+            13
+          ],
+          "output_text": ".",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 776,
+          "ms": 37.448509596288204,
+          "output_token_ids": [
+            13
+          ],
+          "output_text": ".",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 3210,
+          "ms": 127.28056032210588,
+          "output_token_ids": [
+            807
+          ],
+          "output_text": " they",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 1378,
+          "ms": 69.22769173979759,
+          "output_token_ids": [
+            8756
+          ],
+          "output_text": " miles",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 70,
+          "ms": 19.389033317565918,
+          "output_token_ids": [
+            4143
+          ],
+          "output_text": " students",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 789,
+          "ms": 45.01194227486849,
+          "output_token_ids": [
+            32065
+          ],
+          "output_text": " vanilla",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 325,
+          "ms": 21.480235271155834,
+          "output_token_ids": [
+            279
+          ],
+          "output_text": " the",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        },
+        {
+          "tok": 89,
+          "ms": 18.819882534444332,
+          "output_token_ids": [
+            220
+          ],
+          "output_text": " ",
+          "config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE"
+        }
+      ],
+      "chunked": true,
+      "eager": false,
+      "capture_sizes": null,
+      "runtime_policy": null,
+      "runtime_base_capture_size": null,
+      "cudagraph_mode": "FULL_AND_PIECEWISE",
+      "max_num_seqs": null,
+      "template_scheduler": false,
+      "template_scheduler_max_wait_ms": 0.0,
+      "template_scheduler_max_scan": 16,
+      "batch_mode": false,
+      "fixed_metadata_arena": false,
+      "fixed_metadata_arena_max_reqs": 0,
+      "fixed_metadata_arena_min_tokens": 0,
+      "fixed_metadata_arena_max_tokens": 0,
+      "full_key_collapse": false,
+      "live_admission": false,
+      "live_observations": null,
+      "live_explore": false,
+      "live_min_samples": 0,
+      "live_min_useful_rate": 0.0,
+      "live_min_saving_ms": 0.0,
+      "live_max_p95_regression_ms": null,
+      "live_capture": false,
+      "live_shadow_graph_replay": false,
+      "live_observation_source": "offline_shadow_baseline",
+      "live_observation_template_id": "exact",
+      "live_observation_trusted": false,
+      "live_shadow_observations_written": 0,
+      "live_same_engine_validate": false,
+      "live_same_engine_validate_limit": 0,
+      "live_same_engine_observations_written": 0,
+      "live_same_engine_correct": 0,
+      "live_same_engine_useful": 0,
+      "live_same_engine_validation_ms": 0.0,
+      "runtime_control": null,
+      "moe_capacity_buckets": null,
+      "dispatcher_profile": "results/vllm_qwen3_32b_sameengine_range_bs64_20260501_4__vllm_graph_max512_cp_full_and_piecewise_dispatcher.jsonl",
+      "runner_profile": "results/vllm_qwen3_32b_sameengine_range_bs64_20260501_4__vllm_graph_max512_cp_full_and_piecewise_runner.jsonl",
+      "attention_profile": "results/vllm_qwen3_32b_sameengine_range_bs64_20260501_4__vllm_graph_max512_cp_full_and_piecewise_attn.jsonl",
+      "moe_profile": "results/vllm_qwen3_32b_sameengine_range_bs64_20260501_4__vllm_graph_max512_cp_full_and_piecewise_moe.jsonl",
+      "disable_prefix_caching": true,
+      "scheduler_profile": "results/vllm_qwen3_32b_sameengine_range_bs64_20260501_4__vllm_graph_max512_cp_full_and_piecewise_scheduler.jsonl",
+      "speedup_vs_first": 1.0,
+      "ranges": {
+        "(0,512]": {
+          "n": 25,
+          "avg_ms": 21.024515368044376,
+          "p95_ms": 24.723124504089355
+        },
+        "(512,1024]": {
+          "n": 31,
+          "avg_ms": 47.18632434284495,
+          "p95_ms": 58.46151616424322
+        },
+        "(1024,2048]": {
+          "n": 3,
+          "avg_ms": 72.07940705120564,
+          "p95_ms": 78.65281915292144
+        },
+        "(2048,4096]": {
+          "n": 5,
+          "avg_ms": 117.93504282832146,
+          "p95_ms": 127.36052740365267
+        }
+      },
+      "same_outputs_vs_first": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "all_same_outputs_vs_first": true,
+      "reference_config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE",
+      "same_outputs_vs_reference": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "all_same_outputs_vs_reference": true
+    },
+    {
+      "config": "7. Single-engine runtime hybrid max1024 CP",
+      "init_s": 66.90859489887953,
+      "avg_ms": 40.29153299052268,
+      "p50_ms": 37.96033142134547,
+      "p95_ms": 112.93634898029254,
+      "p99_ms": 126.92125015892088,
+      "batch_total_ms": null,
+      "per_req": [
+        {
+          "tok": 791,
+          "ms": 38.22952415794134,
+          "output_token_ids": [
+            566
+          ],
+          "output_text": " he"
+        },
+        {
+          "tok": 756,
+          "ms": 38.097319193184376,
+          "output_token_ids": [
+            220
+          ],
+          "output_text": " "
+        },
+        {
+          "tok": 805,
+          "ms": 39.52649515122175,
+          "output_token_ids": [
+            11
+          ],
+          "output_text": ","
+        },
+        {
+          "tok": 750,
+          "ms": 38.876340724527836,
+          "output_token_ids": [
+            51734
+          ],
+          "output_text": " repaired"
+        },
+        {
+          "tok": 3023,
+          "ms": 122.88566213101149,
+          "output_token_ids": [
+            1246
+          ],
+          "output_text": " how"
+        },
+        {
+          "tok": 494,
+          "ms": 27.283908799290657,
+          "output_token_ids": [
+            50122
+          ],
+          "output_text": " gallons"
+        },
+        {
+          "tok": 409,
+          "ms": 24.40212294459343,
+          "output_token_ids": [
+            23853
+          ],
+          "output_text": " containers"
+        },
+        {
+          "tok": 93,
+          "ms": 21.143821068108082,
+          "output_token_ids": [
+            1817
+          ],
+          "output_text": " each"
+        },
+        {
+          "tok": 83,
+          "ms": 20.957596600055695,
+          "output_token_ids": [
+            1059
+          ],
+          "output_text": " her"
+        },
+        {
+          "tok": 745,
+          "ms": 40.71418847888708,
+          "output_token_ids": [
+            15
+          ],
+          "output_text": "0"
+        },
+        {
+          "tok": 2829,
+          "ms": 116.7741222307086,
+          "output_token_ids": [
+            681
+          ],
+          "output_text": "ance"
+        },
+        {
+          "tok": 886,
+          "ms": 46.088858507573605,
+          "output_token_ids": [
+            323
+          ],
+          "output_text": " and"
+        },
+        {
+          "tok": 79,
+          "ms": 21.5024221688509,
+          "output_token_ids": [
+            22601
+          ],
+          "output_text": " pens"
+        },
+        {
+          "tok": 859,
+          "ms": 45.14103103429079,
+          "output_token_ids": [
+            1521
+          ],
+          "output_text": " did"
+        },
+        {
+          "tok": 208,
+          "ms": 21.798614412546158,
+          "output_token_ids": [
+            13
+          ],
+          "output_text": "."
+        },
+        {
+          "tok": 752,
+          "ms": 37.86443639546633,
+          "output_token_ids": [
+            3701
+          ],
+          "output_text": " card"
+        },
+        {
+          "tok": 452,
+          "ms": 24.814538657665253,
+          "output_token_ids": [
+            315
+          ],
+          "output_text": " of"
+        },
+        {
+          "tok": 345,
+          "ms": 21.82454988360405,
+          "output_token_ids": [
+            32
+          ],
+          "output_text": "A"
+        },
+        {
+          "tok": 758,
+          "ms": 37.68028225749731,
+          "output_token_ids": [
+            5005
+          ],
+          "output_text": " Then"
+        },
+        {
+          "tok": 783,
+          "ms": 38.10632135719061,
+          "output_token_ids": [
+            13
+          ],
+          "output_text": "."
+        },
+        {
+          "tok": 757,
+          "ms": 38.70370797812939,
+          "output_token_ids": [
+            17
+          ],
+          "output_text": "2"
+        },
+        {
+          "tok": 1012,
+          "ms": 45.04108987748623,
+          "output_token_ids": [
+            1803
+          ],
+          "output_text": " car"
+        },
+        {
+          "tok": 2039,
+          "ms": 79.59684915840626,
+          "output_token_ids": [
+            525
+          ],
+          "output_text": " are"
+        },
+        {
+          "tok": 88,
+          "ms": 19.549197517335415,
+          "output_token_ids": [
+            30259
+          ],
+          "output_text": " Kyle"
+        },
+        {
+          "tok": 746,
+          "ms": 38.08789048343897,
+          "output_token_ids": [
+            1246
+          ],
+          "output_text": " how"
+        },
+        {
+          "tok": 411,
+          "ms": 24.409787729382515,
+          "output_token_ids": [
+            264
+          ],
+          "output_text": " a"
+        },
+        {
+          "tok": 311,
+          "ms": 23.47270492464304,
+          "output_token_ids": [
+            264
+          ],
+          "output_text": " a"
+        },
+        {
+          "tok": 121,
+          "ms": 21.23015932738781,
+          "output_token_ids": [
+            13
+          ],
+          "output_text": "."
+        },
+        {
+          "tok": 1332,
+          "ms": 66.01294130086899,
+          "output_token_ids": [
+            13
+          ],
+          "output_text": "."
+        },
+        {
+          "tok": 3281,
+          "ms": 126.600525341928,
+          "output_token_ids": [
+            13
+          ],
+          "output_text": "."
+        },
+        {
+          "tok": 82,
+          "ms": 19.404325634241104,
+          "output_token_ids": [
+            51931
+          ],
+          "output_text": " fries"
+        },
+        {
+          "tok": 746,
+          "ms": 37.73059323430061,
+          "output_token_ids": [
+            5700
+          ],
+          "output_text": " movie"
+        },
+        {
+          "tok": 75,
+          "ms": 19.15095653384924,
+          "output_token_ids": [
+            15
+          ],
+          "output_text": "0"
+        },
+        {
+          "tok": 742,
+          "ms": 37.699063308537006,
+          "output_token_ids": [
+            19507
+          ],
+          "output_text": " baseball"
+        },
+        {
+          "tok": 68,
+          "ms": 21.138320676982403,
+          "output_token_ids": [
+            26938
+          ],
+          "output_text": " beds"
+        },
+        {
+          "tok": 784,
+          "ms": 38.0735257640481,
+          "output_token_ids": [
+            13
+          ],
+          "output_text": "."
+        },
+        {
+          "tok": 830,
+          "ms": 44.98650785535574,
+          "output_token_ids": [
+            220
+          ],
+          "output_text": " "
+        },
+        {
+          "tok": 80,
+          "ms": 19.11378838121891,
+          "output_token_ids": [
+            11
+          ],
+          "output_text": ","
+        },
+        {
+          "tok": 76,
+          "ms": 18.91264971345663,
+          "output_token_ids": [
+            13
+          ],
+          "output_text": "."
+        },
+        {
+          "tok": 2120,
+          "ms": 91.18896722793579,
+          "output_token_ids": [
+            576
+          ],
+          "output_text": " The"
+        },
+        {
+          "tok": 102,
+          "ms": 21.131005138158798,
+          "output_token_ids": [
+            2291
+          ],
+          "output_text": " pay"
+        },
+        {
+          "tok": 72,
+          "ms": 18.920783884823322,
+          "output_token_ids": [
+            32313
+          ],
+          "output_text": "Okay"
+        },
+        {
+          "tok": 203,
+          "ms": 20.06599400192499,
+          "output_token_ids": [
+            432
+          ],
+          "output_text": " it"
+        },
+        {
+          "tok": 71,
+          "ms": 19.09242942929268,
+          "output_token_ids": [
+            13
+          ],
+          "output_text": "."
+        },
+        {
+          "tok": 776,
+          "ms": 37.81010489910841,
+          "output_token_ids": [
+            264
+          ],
+          "output_text": " a"
+        },
+        {
+          "tok": 947,
+          "ms": 45.1709283515811,
+          "output_token_ids": [
+            13
+          ],
+          "output_text": "."
+        },
+        {
+          "tok": 871,
+          "ms": 45.60902155935764,
+          "output_token_ids": [
+            220
+          ],
+          "output_text": " "
+        },
+        {
+          "tok": 745,
+          "ms": 38.287547416985035,
+          "output_token_ids": [
+            2115
+          ],
+          "output_text": " left"
+        },
+        {
+          "tok": 796,
+          "ms": 38.05622644722462,
+          "output_token_ids": [
+            220
+          ],
+          "output_text": " "
+        },
+        {
+          "tok": 70,
+          "ms": 19.088045693933964,
+          "output_token_ids": [
+            374
+          ],
+          "output_text": " is"
+        },
+        {
+          "tok": 758,
+          "ms": 38.07828575372696,
+          "output_token_ids": [
+            20
+          ],
+          "output_text": "5"
+        },
+        {
+          "tok": 747,
+          "ms": 38.075460121035576,
+          "output_token_ids": [
+            220
+          ],
+          "output_text": " "
+        },
+        {
+          "tok": 735,
+          "ms": 38.523925468325615,
+          "output_token_ids": [
+            2114
+          ],
+          "output_text": " home"
+        },
+        {
+          "tok": 754,
+          "ms": 37.81994618475437,
+          "output_token_ids": [
+            279
+          ],
+          "output_text": " the"
+        },
+        {
+          "tok": 948,
+          "ms": 44.86933536827564,
+          "output_token_ids": [
+            1246
+          ],
+          "output_text": " how"
+        },
+        {
+          "tok": 886,
+          "ms": 44.55428011715412,
+          "output_token_ids": [
+            1939
+          ],
+          "output_text": "?\n\n"
+        },
+        {
+          "tok": 881,
+          "ms": 45.18664814531803,
+          "output_token_ids": [
+            13
+          ],
+          "output_text": "."
+        },
+        {
+          "tok": 776,
+          "ms": 37.73076552897692,
+          "output_token_ids": [
+            13
+          ],
+          "output_text": "."
+        },
+        {
+          "tok": 3210,
+          "ms": 127.46734917163849,
+          "output_token_ids": [
+            807
+          ],
+          "output_text": " they"
+        },
+        {
+          "tok": 1378,
+          "ms": 69.12215426564217,
+          "output_token_ids": [
+            8756
+          ],
+          "output_text": " miles"
+        },
+        {
+          "tok": 70,
+          "ms": 19.368902780115604,
+          "output_token_ids": [
+            4143
+          ],
+          "output_text": " students"
+        },
+        {
+          "tok": 789,
+          "ms": 38.495189510285854,
+          "output_token_ids": [
+            32065
+          ],
+          "output_text": " vanilla"
+        },
+        {
+          "tok": 325,
+          "ms": 21.82634174823761,
+          "output_token_ids": [
+            279
+          ],
+          "output_text": " the"
+        },
+        {
+          "tok": 89,
+          "ms": 20.49173228442669,
+          "output_token_ids": [
+            220
+          ],
+          "output_text": " "
+        }
+      ],
+      "chunked": true,
+      "eager": false,
+      "capture_sizes": [
+        1,
+        2,
+        4,
+        8,
+        16,
+        24,
+        32,
+        40,
+        48,
+        56,
+        64,
+        72,
+        80,
+        88,
+        96,
+        104,
+        112,
+        120,
+        128,
+        136,
+        144,
+        152,
+        160,
+        168,
+        176,
+        184,
+        192,
+        200,
+        208,
+        216,
+        224,
+        232,
+        240,
+        248,
+        256,
+        272,
+        288,
+        304,
+        320,
+        336,
+        352,
+        368,
+        384,
+        400,
+        416,
+        432,
+        448,
+        464,
+        480,
+        496,
+        512,
+        640,
+        768,
+        832,
+        896,
+        1024
+      ],
+      "runtime_policy": "results/runtime_policy_vllm_qwen3_32b_64_useful_auto_1024.json",
+      "runtime_base_capture_size": 512,
+      "cudagraph_mode": "FULL_AND_PIECEWISE",
+      "max_num_seqs": null,
+      "template_scheduler": false,
+      "template_scheduler_max_wait_ms": 0.0,
+      "template_scheduler_max_scan": 16,
+      "batch_mode": false,
+      "fixed_metadata_arena": true,
+      "fixed_metadata_arena_max_reqs": 8,
+      "fixed_metadata_arena_min_tokens": 734,
+      "fixed_metadata_arena_max_tokens": 1012,
+      "full_key_collapse": true,
+      "live_admission": true,
+      "live_observations": "results/live_obs_qwen3_32b_sameengine_range_bs64_20260501.jsonl",
+      "live_explore": true,
+      "live_min_samples": 2,
+      "live_min_useful_rate": 0.67,
+      "live_min_saving_ms": 0.5,
+      "live_max_p95_regression_ms": 5.0,
+      "live_capture": true,
+      "live_shadow_graph_replay": false,
+      "live_observation_source": "offline_shadow_baseline",
+      "live_observation_template_id": "range",
+      "live_observation_trusted": false,
+      "live_shadow_observations_written": 0,
+      "live_same_engine_validate": true,
+      "live_same_engine_validate_limit": 0,
+      "live_same_engine_observations_written": 31,
+      "live_same_engine_correct": 31,
+      "live_same_engine_useful": 19,
+      "live_same_engine_validation_ms": 4343.091822229326,
+      "runtime_control": "results/live_obs_qwen3_32b_sameengine_range_bs64_20260501.jsonl.control.json",
+      "moe_capacity_buckets": null,
+      "dispatcher_profile": "results/vllm_qwen3_32b_sameengine_range_bs64_20260501_7__single_engine_runtime_hybrid_max1024_cp_dispatcher.jsonl",
+      "runner_profile": "results/vllm_qwen3_32b_sameengine_range_bs64_20260501_7__single_engine_runtime_hybrid_max1024_cp_runner.jsonl",
+      "attention_profile": "results/vllm_qwen3_32b_sameengine_range_bs64_20260501_7__single_engine_runtime_hybrid_max1024_cp_attn.jsonl",
+      "moe_profile": "results/vllm_qwen3_32b_sameengine_range_bs64_20260501_7__single_engine_runtime_hybrid_max1024_cp_moe.jsonl",
+      "disable_prefix_caching": true,
+      "scheduler_profile": "results/vllm_qwen3_32b_sameengine_range_bs64_20260501_7__single_engine_runtime_hybrid_max1024_cp_scheduler.jsonl",
+      "speedup_vs_first": 1.0836265427271186,
+      "ranges": {
+        "(0,512]": {
+          "n": 25,
+          "avg_ms": 21.203787997364998,
+          "p95_ms": 24.733588472008705
+        },
+        "(512,1024]": {
+          "n": 31,
+          "avg_ms": 40.28757550423184,
+          "p95_ms": 45.39783485233784
+        },
+        "(1024,2048]": {
+          "n": 3,
+          "avg_ms": 71.57731490830581,
+          "p95_ms": 78.54937966912985
+        },
+        "(2048,4096]": {
+          "n": 5,
+          "avg_ms": 116.98332522064447,
+          "p95_ms": 127.29398440569639
+        }
+      },
+      "same_outputs_vs_first": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "all_same_outputs_vs_first": true,
+      "reference_config": "4. vLLM graph max512 CP FULL_AND_PIECEWISE",
+      "same_outputs_vs_reference": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "all_same_outputs_vs_reference": true
+    }
+  ]
+}

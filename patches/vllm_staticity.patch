@@ -3369,10 +3369,10 @@ index ba92e29..71b8298 100644
 +        # Return sync affected IDs to skip in update_from_output
 +        return sync_failed_req_ids
 diff --git a/vllm/v1/cudagraph_dispatcher.py b/vllm/v1/cudagraph_dispatcher.py
-index ef0f8d9..e717502 100644
+index ef0f8d9..e522b5e 100644
 --- a/vllm/v1/cudagraph_dispatcher.py
 +++ b/vllm/v1/cudagraph_dispatcher.py
-@@ -1,14 +1,842 @@
+@@ -1,14 +1,947 @@
  # SPDX-License-Identifier: Apache-2.0
  # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 +import os
@@ -3482,6 +3482,9 @@ index ef0f8d9..e717502 100644
 +_STATICITY_LIVE_OBS_PATH = None
 +_STATICITY_LIVE_OBS_OFFSET = 0
 +_STATICITY_LIVE_REPLAY_BLOCKED = set()
++_STATICITY_RUNTIME_CONTROL_PATH = None
++_STATICITY_RUNTIME_CONTROL_MTIME_NS = None
++_STATICITY_RUNTIME_CONTROL_CACHE = {}
 +
 +
 +def _staticity_bool_env(name: str, default: bool = False) -> bool:
@@ -3489,6 +3492,32 @@ index ef0f8d9..e717502 100644
 +    if raw is None:
 +        return default
 +    return raw.lower() in {"1", "true", "yes", "on"}
++
++
++def _staticity_runtime_control():
++    global _STATICITY_RUNTIME_CONTROL_PATH, _STATICITY_RUNTIME_CONTROL_MTIME_NS
++    global _STATICITY_RUNTIME_CONTROL_CACHE
++    path = os.environ.get("STATICITY_VLLM_RUNTIME_CONTROL")
++    if not path:
++        return {}
++    try:
++        data = json.loads(Path(path).read_text(encoding="utf-8"))
++    except FileNotFoundError:
++        data = {}
++    except Exception:
++        logger.debug("Failed to read STATICITY_VLLM_RUNTIME_CONTROL", exc_info=True)
++        return _STATICITY_RUNTIME_CONTROL_CACHE or {}
++    _STATICITY_RUNTIME_CONTROL_PATH = path
++    _STATICITY_RUNTIME_CONTROL_MTIME_NS = None
++    _STATICITY_RUNTIME_CONTROL_CACHE = data if isinstance(data, dict) else {}
++    return _STATICITY_RUNTIME_CONTROL_CACHE
++
++
++def _staticity_control_bool(key: str, env_name: str, default: bool = False) -> bool:
++    control = _staticity_runtime_control()
++    if isinstance(control, dict) and key in control:
++        return bool(control.get(key))
++    return _staticity_bool_env(env_name, default)
 +
 +
 +def _staticity_env_float(name: str, default: float) -> float:
@@ -3633,6 +3662,25 @@ index ef0f8d9..e717502 100644
 +    return aliases
 +
 +
++def _staticity_evict_template(
++    template_id: str,
++    aliases: list[str],
++    reason: str,
++    *,
++    disable: bool = False,
++) -> None:
++    for item in [str(template_id), *[str(alias) for alias in aliases]]:
++        _STATICITY_RUNTIME_ADMITTED_TEMPLATES.discard(item)
++        stats = _STATICITY_RUNTIME_TEMPLATE_STATS.get(item)
++        if stats is None:
++            continue
++        stats["live_evictions"] = int(stats.get("live_evictions", 0) or 0) + 1
++        stats["live_last_evict_reason"] = reason
++        if disable:
++            stats["live_disabled"] = True
++            stats["live_disable_reason"] = reason
++
++
 +def _staticity_trust_seeded_online_admission() -> bool:
 +    # Offline residual-capture policies may contain historical latency samples.
 +    # Those samples are useful for analysis but must not become user-visible
@@ -3731,7 +3779,23 @@ index ef0f8d9..e717502 100644
 +    # Exploration must be fail-closed by default: until a candidate template
 +    # has correctness and latency evidence, it may be measured by the harness
 +    # but must not serve user-visible graph output.
-+    return _staticity_bool_env("STATICITY_VLLM_UNSAFE_LIVE_EXPLORE_REPLAY", False)
++    return _staticity_control_bool(
++        "unsafe_live_explore_replay",
++        "STATICITY_VLLM_UNSAFE_LIVE_EXPLORE_REPLAY",
++        False,
++    )
++
++
++def _staticity_force_runtime_fallback_enabled() -> bool:
++    # Used by same-engine validation: run the same prompt through the normal
++    # runtime engine, but force GraphAdmit-owned extra templates to fallback so
++    # the fallback timing is not silently satisfied by a previously captured
++    # candidate graph.
++    return _staticity_control_bool(
++        "force_runtime_fallback",
++        "STATICITY_VLLM_FORCE_RUNTIME_FALLBACK",
++        False,
++    )
 +
 +
 +def _staticity_live_capture_only_enabled(policy) -> bool:
@@ -4035,10 +4099,20 @@ index ef0f8d9..e717502 100644
 +        "live_correctness_failures": correctness_failures,
 +    })
 +    if bool(stats.get("live_disabled", False)):
++        _staticity_evict_template(
++            template_id,
++            aliases,
++            stats.get("live_disable_reason") or "live_disabled",
++            disable=True,
++        )
 +        return False, stats.get("live_disable_reason") or "live_disabled"
 +    if correctness_failures > cfg["max_correctness_failures"]:
-+        stats["live_disabled"] = True
-+        stats["live_disable_reason"] = "live_correctness_failure"
++        _staticity_evict_template(
++            template_id,
++            aliases,
++            "live_correctness_failure",
++            disable=True,
++        )
 +        return False, "live_correctness_failure"
 +    if samples < cfg["min_samples"]:
 +        if cfg["explore_until_min_samples"]:
@@ -4053,14 +4127,29 @@ index ef0f8d9..e717502 100644
 +            return False, "live_explore_fallback_until_admitted"
 +        return False, f"live_samples_lt_{cfg['min_samples']}"
 +    if useful_rate < cfg["min_useful_rate"]:
++        _staticity_evict_template(
++            template_id,
++            aliases,
++            "live_low_useful_rate",
++        )
 +        return False, "live_low_useful_rate"
 +    try:
 +        if saving_ewma is None or float(saving_ewma) < cfg["min_saving_ms"]:
++            _staticity_evict_template(
++                template_id,
++                aliases,
++                "live_insufficient_latency_saving",
++            )
 +            return False, "live_insufficient_latency_saving"
 +    except (TypeError, ValueError):
 +        return False, "live_insufficient_latency_saving"
 +    try:
 +        if p95_reg is not None and float(p95_reg) > cfg["max_p95_regression_ms"]:
++            _staticity_evict_template(
++                template_id,
++                aliases,
++                "live_tail_regression_guard",
++            )
 +            return False, "live_tail_regression_guard"
 +    except (TypeError, ValueError):
 +        pass
@@ -4128,6 +4217,11 @@ index ef0f8d9..e717502 100644
 +            admission["reject_reason"] = f"base_capture_gt_{base_capture_size}"
 +            return False, chosen_action, matched_rule, f"base_capture_gt_{base_capture_size}", admission
 +
++    if is_extra_template and _staticity_force_runtime_fallback_enabled():
++        _staticity_record_template(template_id, "rejected")
++        admission["reject_reason"] = "forced_shadow_fallback"
++        return False, chosen_action, matched_rule, "forced_shadow_fallback", admission
++
 +    # Correctness guard: extra graph templates are only safe for multi-request
 +    # batches after the attention/KV metadata key collapse has been proven.
 +    # Sequential single-request prefill can use the latency policy; online
@@ -4191,22 +4285,33 @@ index ef0f8d9..e717502 100644
 +        if not live_ok:
 +            _staticity_record_template(template_id, "rejected")
 +            admission["reject_reason"] = live_reason or "live_admission_reject"
++            admission["admitted_templates"] = len(
++                _STATICITY_RUNTIME_ADMITTED_TEMPLATES)
 +            return False, chosen_action, matched_rule, admission["reject_reason"], admission
 +        if live_reason:
 +            admission["live_non_admit_reason"] = live_reason
 +
-+    if is_extra_template and not bool(admission.get("live_capture_only", False)):
++    exploratory_replay = bool(admission.get("live_explore_replay", False))
++    if (
++        is_extra_template
++        and not bool(admission.get("live_capture_only", False))
++        and not exploratory_replay
++    ):
 +        _STATICITY_RUNTIME_ADMITTED_TEMPLATES.add(template_id)
 +
 +    stats = _staticity_record_template(
 +        template_id,
-+        "exploring" if admission.get("live_capture_only", False) else "admitted",
++        "exploring"
++        if admission.get("live_capture_only", False) or exploratory_replay
++        else "admitted",
 +    )
 +    admission.update(stats)
 +    admission["admitted_templates"] = len(_STATICITY_RUNTIME_ADMITTED_TEMPLATES)
 +    reason = (
 +        "live_capture_only_until_admitted"
 +        if admission.get("live_capture_only", False)
++        else "live_explore_replay_until_admitted"
++        if exploratory_replay
 +        else "graph_action"
 +    )
 +    return True, chosen_action, matched_rule, reason, admission
@@ -4215,7 +4320,7 @@ index ef0f8d9..e717502 100644
  class CudagraphDispatcher:
      """
      Runtime cudagraph dispatcher to dispatch keys for multiple set of
-@@ -57,16 +885,87 @@ class CudagraphDispatcher:
+@@ -57,16 +990,87 @@ class CudagraphDispatcher:
          )
  
          self.keys_initialized = False
@@ -4306,7 +4411,7 @@ index ef0f8d9..e717502 100644
              assert num_tokens_padded % uniform_decode_query_len == 0
          else:
              uniform_decode = False
-@@ -77,6 +976,7 @@ class CudagraphDispatcher:
+@@ -77,6 +1081,7 @@ class CudagraphDispatcher:
              num_reqs=num_reqs,
              uniform=uniform_decode,
              has_lora=has_lora,
@@ -4314,7 +4419,7 @@ index ef0f8d9..e717502 100644
          )
  
      def add_cudagraph_key(
-@@ -88,34 +988,47 @@ class CudagraphDispatcher:
+@@ -88,34 +1093,47 @@ class CudagraphDispatcher:
          self.cudagraph_keys[runtime_mode].add(batch_descriptor)
  
      def initialize_cudagraph_keys(
@@ -4377,7 +4482,7 @@ index ef0f8d9..e717502 100644
  
          # if decode cudagraph mode is FULL, and we don't already have mixed
          # mode full cudagraphs then add them here.
-@@ -127,15 +1040,22 @@ class CudagraphDispatcher:
+@@ -127,15 +1145,22 @@ class CudagraphDispatcher:
                  uniform_decode_query_len
                  * self.vllm_config.scheduler_config.max_num_seqs
              )
@@ -4402,7 +4507,7 @@ index ef0f8d9..e717502 100644
                  )
  
          self.keys_initialized = True
-@@ -143,41 +1063,270 @@ class CudagraphDispatcher:
+@@ -143,41 +1168,270 @@ class CudagraphDispatcher:
      def dispatch(
          self,
          num_tokens: int,
@@ -4457,7 +4562,7 @@ index ef0f8d9..e717502 100644
 +            f"invalid_modes={invalid_modes}"
 +        )
 +        max_size = self.compilation_config.max_cudagraph_capture_size
-+
+ 
 +        fallback_reason = None
 +        runtime_action = None
 +        runtime_rule = None
@@ -4498,7 +4603,7 @@ index ef0f8d9..e717502 100644
 +                staticity_runtime_admission=runtime_admission,
 +            )
 +            return CUDAGraphMode.NONE, batch_desc
- 
++
 +        effective_num_active_loras = num_active_loras
 +        if has_lora and num_active_loras > 0:
 +            if self.specialize_lora_count:
@@ -4560,10 +4665,7 @@ index ef0f8d9..e717502 100644
 +                    staticity_runtime_admission=runtime_admission,
 +                )
 +                return CUDAGraphMode.FULL, batch_desc_to_check
- 
--            # otherwise, check if the relaxed key exists
--            if relaxed_batch_desc in self.cudagraph_keys[CUDAGraphMode.FULL]:
--                return CUDAGraphMode.FULL, relaxed_batch_desc
++
 +        if CUDAGraphMode.PIECEWISE in allowed_modes:
 +            # also check if the relaxed key exists for more "general"
 +            # piecewise cudagraph
@@ -4639,7 +4741,10 @@ index ef0f8d9..e717502 100644
 +                    staticity_runtime_admission=runtime_admission,
 +                )
 +                return CUDAGraphMode.PIECEWISE, lazy_desc
-+
+ 
+-            # otherwise, check if the relaxed key exists
+-            if relaxed_batch_desc in self.cudagraph_keys[CUDAGraphMode.FULL]:
+-                return CUDAGraphMode.FULL, relaxed_batch_desc
 +        assert CUDAGraphMode.NONE in allowed_modes, (
 +            f"No matching cudagraph found and NONE is not in "
 +            f"allowed_modes={allowed_modes}"
@@ -4665,11 +4770,7 @@ index ef0f8d9..e717502 100644
 +    ) -> list[tuple[CUDAGraphMode, list[BatchDescriptor]]]:
 +        """
 +        Returns capture descriptors for cudagraph capturing.
- 
--        # also check if the relaxed key exists for more "general"
--        # piecewise cudagraph
--        if relaxed_batch_desc in self.cudagraph_keys[CUDAGraphMode.PIECEWISE]:
--            return CUDAGraphMode.PIECEWISE, relaxed_batch_desc
++
 +        Returns:
 +            List of (runtime_mode, batch_descriptors) tuples, ordered PIECEWISE
 +            first then FULL. Batch descriptors are sorted largest-first for
@@ -4677,7 +4778,11 @@ index ef0f8d9..e717502 100644
 +        """
 +        if not self.keys_initialized or self.cudagraph_mode == CUDAGraphMode.NONE:
 +            return []
-+
+ 
+-        # also check if the relaxed key exists for more "general"
+-        # piecewise cudagraph
+-        if relaxed_batch_desc in self.cudagraph_keys[CUDAGraphMode.PIECEWISE]:
+-            return CUDAGraphMode.PIECEWISE, relaxed_batch_desc
 +        result = []
 +        policy = _load_staticity_runtime_policy() or {}
 +        # Return in order: PIECEWISE first, then FULL

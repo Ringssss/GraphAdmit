@@ -3,6 +3,7 @@ import argparse
 import gc
 import json
 import os
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -179,6 +180,365 @@ def append_live_admission_observation(path, *, template_id, graph_ms, fallback_m
         fp.write(json.dumps(record, sort_keys=True) + '\n')
 
 
+def _set_env_temporarily(updates):
+    old = {key: os.environ.get(key) for key in updates}
+    for key, value in updates.items():
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = str(value)
+    return old
+
+
+def _restore_env(saved):
+    for key, value in saved.items():
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
+
+
+def _extract_first_generation(request_outputs):
+    output = (
+        request_outputs[0].outputs[0]
+        if request_outputs and request_outputs[0].outputs
+        else None
+    )
+    token_ids = list(output.token_ids) if output is not None else []
+    text = output.text if output is not None else ''
+    return [int(x) for x in token_ids], text
+
+
+def _timed_generate_one(llm, prompt, sampling_params):
+    torch.cuda.synchronize()
+    start = time.perf_counter()
+    request_outputs = llm.generate([prompt], sampling_params)
+    torch.cuda.synchronize()
+    ms = (time.perf_counter() - start) * 1000
+    token_ids, text = _extract_first_generation(request_outputs)
+    return ms, token_ids, text
+
+
+def _write_runtime_control(path, **values):
+    if not path:
+        return
+    control = Path(path)
+    control.parent.mkdir(parents=True, exist_ok=True)
+    tmp = control.with_name(f'{control.name}.tmp.{os.getpid()}')
+    tmp.write_text(json.dumps(values, sort_keys=True) + '\n', encoding='utf-8')
+    tmp.replace(control)
+
+
+def _count_live_rows(path, *, sources=None):
+    if not path or not Path(path).exists():
+        return {
+            'observations': 0,
+            'correct': 0,
+            'useful': 0,
+        }
+    source_set = set(sources or [])
+    counts = {
+        'observations': 0,
+        'correct': 0,
+        'useful': 0,
+    }
+    with Path(path).open('r', encoding='utf-8') as fp:
+        for line in fp:
+            if not line.strip():
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if source_set and row.get('source') not in source_set:
+                continue
+            counts['observations'] += 1
+            counts['correct'] += int(bool(row.get('correct')))
+            counts['useful'] += int(bool(row.get('useful')))
+    return counts
+
+
+def _candidate_matches(runtime_policy, lens, *, template_id_style):
+    matches = []
+    seen = set()
+    for index, tokens in enumerate(lens):
+        match = runtime_policy_graph_template(
+            runtime_policy,
+            tokens,
+            num_reqs=1,
+            template_id_style=template_id_style,
+        )
+        if not match:
+            continue
+        key = match['template_id']
+        if key in seen:
+            continue
+        seen.add(key)
+        matches.append((index, tokens, match))
+    return matches
+
+
+def _append_probe_crash_blacklist(
+    live_observations,
+    *,
+    runtime_policy,
+    lens,
+    validate_n,
+    template_id_style,
+    returncode,
+):
+    if not live_observations:
+        return 0
+    written = 0
+    for vi, tokens, match in _candidate_matches(
+        runtime_policy,
+        lens[:validate_n],
+        template_id_style=template_id_style,
+    ):
+        append_live_admission_observation(
+            live_observations,
+            template_id=match['template_id'],
+            graph_ms=1.0e9,
+            fallback_ms=0.0,
+            correct=False,
+            tokens=tokens,
+            request_index=vi,
+            extra={
+                'action': match['action'],
+                'template_aliases': match.get('template_aliases', []),
+                'template_tokens': match['template_tokens'],
+                'lo': match['lo'],
+                'hi': match['hi'],
+                'source': 'trusted_live_graph_replay',
+                'trusted_graph_replay': True,
+                'same_engine': True,
+                'shadow_engine': True,
+                'validation_mode': 'isolated_probe_crash_blacklist',
+                'probe_crashed': True,
+                'probe_returncode': int(returncode),
+                'useful': False,
+            },
+        )
+        written += 1
+    return written
+
+
+def _run_isolated_live_probe(payload):
+    probe_payload = Path(payload['probe_payload'])
+    probe_payload.parent.mkdir(parents=True, exist_ok=True)
+    probe_payload.write_text(json.dumps(payload, sort_keys=True), encoding='utf-8')
+    before = _count_live_rows(
+        payload['live_observations'],
+        sources={'live_graph_replay', 'trusted_live_graph_replay'},
+    )
+    cmd = [
+        sys.executable,
+        str(Path(__file__).resolve()),
+        '--live-admission-probe-worker',
+        str(probe_payload),
+    ]
+    timeout = float(payload.get('probe_timeout_s') or 0.0)
+    try:
+        proc = subprocess.run(
+            cmd,
+            check=False,
+            timeout=timeout if timeout > 0 else None,
+        )
+        returncode = int(proc.returncode)
+    except subprocess.TimeoutExpired:
+        returncode = 124
+    if returncode != 0:
+        validate_n = int(payload.get('validate_n') or len(payload['prompts']))
+        blacklisted = _append_probe_crash_blacklist(
+            payload['live_observations'],
+            runtime_policy=payload['runtime_policy'],
+            lens=payload['lens'],
+            validate_n=validate_n,
+            template_id_style=payload['live_observation_template_id'],
+            returncode=returncode,
+        )
+        print(
+            f'  isolated live probe failed rc={returncode}; '
+            f'wrote {blacklisted} fail-closed blacklist observations'
+        )
+    after = _count_live_rows(
+        payload['live_observations'],
+        sources={'live_graph_replay', 'trusted_live_graph_replay'},
+    )
+    return {
+        'returncode': returncode,
+        'observations': after['observations'] - before['observations'],
+        'correct': after['correct'] - before['correct'],
+        'useful': after['useful'] - before['useful'],
+    }
+
+
+def run_live_admission_probe_worker(payload_path):
+    payload = json.loads(Path(payload_path).read_text(encoding='utf-8'))
+    from vllm import LLM, SamplingParams
+
+    runtime_control_path = payload['runtime_control']
+    _write_runtime_control(
+        runtime_control_path,
+        unsafe_live_explore_replay=False,
+        force_runtime_fallback=False,
+    )
+    env_updates = {
+        'STATICITY_VLLM_RUNTIME_POLICY': payload['runtime_policy'],
+        'STATICITY_VLLM_BASE_CAPTURE_SIZE': str(payload['runtime_base_capture_size']),
+        'STATICITY_VLLM_RUNTIME_ACTIVE': '1',
+        'STATICITY_VLLM_LIVE_ADMISSION': '1',
+        'STATICITY_VLLM_LIVE_EXPLORE': '1',
+        'STATICITY_VLLM_LIVE_MIN_SAMPLES': str(payload['live_min_samples']),
+        'STATICITY_VLLM_LIVE_MIN_USEFUL_RATE': str(payload['live_min_useful_rate']),
+        'STATICITY_VLLM_LIVE_MIN_SAVING_MS': str(payload['live_min_saving_ms']),
+        'STATICITY_VLLM_LIVE_CAPTURE': '1',
+        'STATICITY_VLLM_ALLOW_RUNTIME_CUDAGRAPH_CAPTURE': '1',
+        'STATICITY_VLLM_RUNTIME_CONTROL': runtime_control_path,
+        'STATICITY_VLLM_LIVE_OBSERVATIONS': payload['live_observations'],
+    }
+    if payload.get('live_max_p95_regression_ms') is not None:
+        env_updates['STATICITY_VLLM_LIVE_MAX_P95_REGRESSION_MS'] = str(
+            payload['live_max_p95_regression_ms'])
+    if payload.get('fixed_metadata_arena'):
+        env_updates['STATICITY_VLLM_FIXED_METADATA_ARENA'] = '1'
+    if payload.get('fixed_metadata_arena_max_reqs'):
+        env_updates['STATICITY_VLLM_FIXED_METADATA_ARENA_MAX_REQS'] = str(
+            payload['fixed_metadata_arena_max_reqs'])
+    if payload.get('fixed_metadata_arena_min_tokens'):
+        env_updates['STATICITY_VLLM_FIXED_METADATA_ARENA_MIN_TOKENS'] = str(
+            payload['fixed_metadata_arena_min_tokens'])
+    if payload.get('fixed_metadata_arena_max_tokens'):
+        env_updates['STATICITY_VLLM_FIXED_METADATA_ARENA_MAX_TOKENS'] = str(
+            payload['fixed_metadata_arena_max_tokens'])
+    if payload.get('full_key_collapse'):
+        env_updates['VLLM_FULL_KEY_COLLAPSE'] = '1'
+    if payload.get('moe_capacity_buckets'):
+        env_updates['STATICITY_VLLM_MOE_CAPACITY_BUCKETS'] = str(
+            payload['moe_capacity_buckets'])
+    if payload.get('live_observation_template_id') == 'exact':
+        env_updates['STATICITY_VLLM_EXACT_TOKEN_TEMPLATES'] = '1'
+    saved = _set_env_temporarily(env_updates)
+    try:
+        cc = {
+            'cudagraph_mode': payload['cudagraph_mode'],
+            'cudagraph_capture_sizes': payload['cap_sizes'],
+            'max_cudagraph_capture_size': max(payload['cap_sizes']),
+        }
+        kw = dict(
+            model=payload['model'],
+            tensor_parallel_size=int(payload['tp']),
+            max_model_len=int(payload['max_model_len']),
+            gpu_memory_utilization=float(payload['gmu']),
+            enforce_eager=False,
+            disable_log_stats=True,
+            enable_chunked_prefill=True,
+            enable_return_routed_experts=bool(
+                payload.get('enable_return_routed_experts')),
+            compilation_config=cc,
+        )
+        if payload.get('disable_prefix_caching'):
+            kw['enable_prefix_caching'] = False
+        if payload.get('max_num_seqs'):
+            kw['max_num_seqs'] = int(payload['max_num_seqs'])
+        llm = LLM(**kw)
+        sp = SamplingParams(max_tokens=int(payload['max_tokens']), temperature=0.0)
+        prompts = payload['prompts']
+        lens = [int(x) for x in payload['lens']]
+        _ = llm.generate([prompts[0]], sp)
+        validate_n = int(payload.get('validate_n') or len(prompts))
+        for vi, prompt in enumerate(prompts[:validate_n]):
+            match = runtime_policy_graph_template(
+                payload['runtime_policy'],
+                lens[vi],
+                num_reqs=1,
+                template_id_style=payload['live_observation_template_id'],
+            )
+            if not match:
+                continue
+            graph_env = _set_env_temporarily({
+                'STATICITY_VLLM_RUNTIME_ACTIVE': '1',
+                'STATICITY_VLLM_LIVE_EXPLORE': '1',
+                'STATICITY_VLLM_LIVE_MIN_SAMPLES': str(
+                    max(1, int(payload['live_min_samples']))),
+                'STATICITY_VLLM_UNSAFE_LIVE_EXPLORE_REPLAY': '1',
+                'STATICITY_VLLM_FORCE_RUNTIME_FALLBACK': None,
+            })
+            try:
+                _write_runtime_control(
+                    runtime_control_path,
+                    unsafe_live_explore_replay=True,
+                    force_runtime_fallback=False,
+                )
+                capture_ms, _, _ = _timed_generate_one(llm, prompt, sp)
+                graph_ms, graph_tokens, graph_text = _timed_generate_one(
+                    llm, prompt, sp)
+            finally:
+                _write_runtime_control(
+                    runtime_control_path,
+                    unsafe_live_explore_replay=False,
+                    force_runtime_fallback=False,
+                )
+                _restore_env(graph_env)
+            fallback_env = _set_env_temporarily({
+                'STATICITY_VLLM_RUNTIME_ACTIVE': '1',
+                'STATICITY_VLLM_UNSAFE_LIVE_EXPLORE_REPLAY': None,
+                'STATICITY_VLLM_FORCE_RUNTIME_FALLBACK': '1',
+            })
+            try:
+                _write_runtime_control(
+                    runtime_control_path,
+                    unsafe_live_explore_replay=False,
+                    force_runtime_fallback=True,
+                )
+                fallback_ms, fallback_tokens, fallback_text = _timed_generate_one(
+                    llm, prompt, sp)
+            finally:
+                _write_runtime_control(
+                    runtime_control_path,
+                    unsafe_live_explore_replay=False,
+                    force_runtime_fallback=False,
+                )
+                _restore_env(fallback_env)
+            correct = graph_tokens == fallback_tokens
+            useful = correct and graph_ms < fallback_ms
+            append_live_admission_observation(
+                payload['live_observations'],
+                template_id=match['template_id'],
+                graph_ms=graph_ms,
+                fallback_ms=fallback_ms,
+                correct=correct,
+                tokens=lens[vi],
+                request_index=vi,
+                extra={
+                    'action': match['action'],
+                    'template_aliases': match.get('template_aliases', []),
+                    'template_tokens': match['template_tokens'],
+                    'lo': match['lo'],
+                    'hi': match['hi'],
+                    'source': 'live_graph_replay',
+                    'trusted_graph_replay': True,
+                    'same_engine': True,
+                    'shadow_engine': True,
+                    'validation_mode': 'isolated_same_engine_probe',
+                    'fallback_config': 'forced_runtime_fallback',
+                    'candidate_capture_ms': capture_ms,
+                    'useful': bool(useful),
+                    'graph_output_token_ids': graph_tokens,
+                    'fallback_output_token_ids': fallback_tokens,
+                    'graph_output_text': graph_text,
+                    'fallback_output_text': fallback_text,
+                },
+            )
+            print(
+                f"    isolated [{vi+1}/{validate_n}] len={lens[vi]} "
+                f"graph={graph_ms:.2f} ms fallback={fallback_ms:.2f} ms "
+                f"correct={int(correct)} useful={int(useful)}"
+            )
+    finally:
+        _restore_env(saved)
+
+
 def run_config(
     model,
     prompts,
@@ -221,6 +581,10 @@ def run_config(
     live_observation_template_id='exact',
     live_observation_trusted=False,
     live_shadow_rows=None,
+    live_same_engine_validate=False,
+    live_same_engine_validate_limit=0,
+    live_isolated_probe=False,
+    live_isolated_probe_timeout_s=0.0,
     moe_capacity_buckets=None,
     disable_prefix_caching=False,
 ):
@@ -252,6 +616,8 @@ def run_config(
     old_live_capture = os.environ.get('STATICITY_VLLM_LIVE_CAPTURE')
     old_allow_runtime_capture = os.environ.get('STATICITY_VLLM_ALLOW_RUNTIME_CUDAGRAPH_CAPTURE')
     old_unsafe_live_explore_replay = os.environ.get('STATICITY_VLLM_UNSAFE_LIVE_EXPLORE_REPLAY')
+    old_force_runtime_fallback = os.environ.get('STATICITY_VLLM_FORCE_RUNTIME_FALLBACK')
+    old_runtime_control = os.environ.get('STATICITY_VLLM_RUNTIME_CONTROL')
     old_moe_capacity_buckets = os.environ.get('STATICITY_VLLM_MOE_CAPACITY_BUCKETS')
     old_exact_token_templates = os.environ.get('STATICITY_VLLM_EXACT_TOKEN_TEMPLATES')
     old_trust_shadow_positive = os.environ.get('STATICITY_VLLM_TRUST_SHADOW_POSITIVE_OBSERVATIONS')
@@ -280,6 +646,16 @@ def run_config(
         os.environ['STATICITY_VLLM_ATTN_PROFILE'] = attn_profile
         os.environ['STATICITY_VLLM_MOE_PROFILE'] = moe_profile
         os.environ['STATICITY_VLLM_SCHEDULER_PROFILE'] = scheduler_profile
+    runtime_control_path = None
+    if (live_same_engine_validate or live_isolated_probe) and live_admission:
+        control_base = Path(live_observations or dispatch_profile or 'results/staticity_runtime_control.json')
+        runtime_control_path = str(control_base.with_suffix(control_base.suffix + '.control.json'))
+        _write_runtime_control(
+            runtime_control_path,
+            unsafe_live_explore_replay=False,
+            force_runtime_fallback=False,
+        )
+        os.environ['STATICITY_VLLM_RUNTIME_CONTROL'] = runtime_control_path
     if runtime_policy:
         os.environ['STATICITY_VLLM_RUNTIME_POLICY'] = runtime_policy
         os.environ['STATICITY_VLLM_BASE_CAPTURE_SIZE'] = str(runtime_base_capture_size)
@@ -309,6 +685,8 @@ def run_config(
                 obs = Path(live_observations)
                 obs.parent.mkdir(parents=True, exist_ok=True)
                 obs.write_text('', encoding='utf-8')
+        if (live_same_engine_validate or live_isolated_probe) and not live_observations:
+            raise ValueError('live graph validation requires live_observations')
         if live_explore:
             os.environ['STATICITY_VLLM_LIVE_EXPLORE'] = '1'
         os.environ['STATICITY_VLLM_LIVE_MIN_SAMPLES'] = str(int(live_min_samples))
@@ -316,6 +694,28 @@ def run_config(
         os.environ['STATICITY_VLLM_LIVE_MIN_SAVING_MS'] = str(float(live_min_saving_ms))
         if live_max_p95_regression_ms is not None:
             os.environ['STATICITY_VLLM_LIVE_MAX_P95_REGRESSION_MS'] = str(float(live_max_p95_regression_ms))
+    if live_same_engine_validate:
+        if not live_admission:
+            raise ValueError('same-engine live validation requires live_admission')
+        if live_isolated_probe:
+            raise ValueError('same-engine inline validation and isolated probe are mutually exclusive')
+        if not live_capture:
+            raise ValueError('same-engine live validation requires live_capture')
+        if batch_mode:
+            raise ValueError('same-engine live validation currently supports sequential LLM.generate only')
+        if not disable_prefix_caching:
+            print('  same-engine live validation forces prefix caching off for clean repeated-prompt comparisons')
+            disable_prefix_caching = True
+    if live_isolated_probe:
+        if not live_admission:
+            raise ValueError('isolated live probe requires live_admission')
+        if not live_capture:
+            raise ValueError('isolated live probe requires live_capture')
+        if batch_mode:
+            raise ValueError('isolated live probe currently supports sequential LLM.generate only')
+        if not disable_prefix_caching:
+            print('  isolated live probe forces prefix caching off for clean repeated-prompt comparisons')
+            disable_prefix_caching = True
     if live_capture:
         os.environ['STATICITY_VLLM_LIVE_CAPTURE'] = '1'
         os.environ['STATICITY_VLLM_ALLOW_RUNTIME_CUDAGRAPH_CAPTURE'] = '1'
@@ -328,6 +728,57 @@ def run_config(
         os.environ['STATICITY_VLLM_POSITIVE_ALIAS_EXPANSION'] = '0'
     if moe_capacity_buckets:
         os.environ['STATICITY_VLLM_MOE_CAPACITY_BUCKETS'] = moe_capacity_buckets
+    isolated_probe_counts = {'returncode': None, 'observations': 0, 'correct': 0, 'useful': 0}
+    if live_isolated_probe and live_observations and runtime_policy:
+        validate_n = (
+            min(len(prompts), int(live_same_engine_validate_limit))
+            if int(live_same_engine_validate_limit or 0) > 0
+            else len(prompts)
+        )
+        probe_payload = {
+            'probe_payload': str(
+                Path(runtime_control_path).with_suffix('.probe.json')
+                if runtime_control_path else Path(live_observations).with_suffix('.probe.json')
+            ),
+            'model': model,
+            'prompts': prompts[:validate_n],
+            'lens': lens[:validate_n],
+            'tp': int(tp),
+            'max_model_len': int(max_model_len),
+            'gmu': float(gmu),
+            'max_tokens': int(max_tokens),
+            'cap_sizes': list(cap_sizes or []),
+            'runtime_policy': runtime_policy,
+            'runtime_base_capture_size': int(runtime_base_capture_size),
+            'cudagraph_mode': cudagraph_mode,
+            'max_num_seqs': int(max_num_seqs) if max_num_seqs else 0,
+            'enable_return_routed_experts': bool(enable_return_routed_experts),
+            'fixed_metadata_arena': bool(fixed_metadata_arena),
+            'fixed_metadata_arena_max_reqs': int(fixed_metadata_arena_max_reqs or 0),
+            'fixed_metadata_arena_min_tokens': int(fixed_metadata_arena_min_tokens or 0),
+            'fixed_metadata_arena_max_tokens': int(fixed_metadata_arena_max_tokens or 0),
+            'full_key_collapse': bool(full_key_collapse),
+            'live_min_samples': int(live_min_samples),
+            'live_min_useful_rate': float(live_min_useful_rate),
+            'live_min_saving_ms': float(live_min_saving_ms),
+            'live_max_p95_regression_ms': live_max_p95_regression_ms,
+            'live_observations': live_observations,
+            'live_observation_template_id': live_observation_template_id,
+            'runtime_control': runtime_control_path,
+            'moe_capacity_buckets': moe_capacity_buckets,
+            'disable_prefix_caching': True,
+            'validate_n': int(validate_n),
+            'probe_timeout_s': float(live_isolated_probe_timeout_s or 0.0),
+        }
+        print(f'  isolated live probe: n={validate_n}')
+        isolated_probe_counts = _run_isolated_live_probe(probe_payload)
+        print(
+            '  isolated live probe result: '
+            f"rc={isolated_probe_counts['returncode']} "
+            f"obs={isolated_probe_counts['observations']} "
+            f"correct={isolated_probe_counts['correct']} "
+            f"useful={isolated_probe_counts['useful']}"
+        )
     cc = {}
     if not eager:
         cc['cudagraph_mode'] = cudagraph_mode
@@ -365,7 +816,112 @@ def run_config(
         ttfts = []
         outputs = []
         live_shadow_written = 0
+        live_same_engine_written = 0
+        live_same_engine_correct = 0
+        live_same_engine_useful = 0
+        live_same_engine_ms = 0.0
         batch_total_ms = None
+        if (
+            live_same_engine_validate
+            and live_observations
+            and runtime_policy
+            and not batch_mode
+        ):
+            validate_n = (
+                min(len(prompts), int(live_same_engine_validate_limit))
+                if int(live_same_engine_validate_limit or 0) > 0
+                else len(prompts)
+            )
+            print(f'  same-engine live validation: n={validate_n}')
+            for vi, prompt in enumerate(prompts[:validate_n]):
+                match = runtime_policy_graph_template(
+                    runtime_policy,
+                    lens[vi],
+                    num_reqs=1,
+                    template_id_style=live_observation_template_id,
+                )
+                if not match:
+                    continue
+                graph_env = _set_env_temporarily({
+                    'STATICITY_VLLM_RUNTIME_ACTIVE': '1',
+                    'STATICITY_VLLM_LIVE_EXPLORE': '1',
+                    'STATICITY_VLLM_LIVE_MIN_SAMPLES': str(max(1, int(live_min_samples))),
+                    'STATICITY_VLLM_UNSAFE_LIVE_EXPLORE_REPLAY': '1',
+                    'STATICITY_VLLM_FORCE_RUNTIME_FALLBACK': None,
+                })
+                try:
+                    _write_runtime_control(
+                        runtime_control_path,
+                        unsafe_live_explore_replay=True,
+                        force_runtime_fallback=False,
+                    )
+                    capture_ms, _, _ = _timed_generate_one(llm, prompt, sp)
+                    graph_ms, graph_tokens, graph_text = _timed_generate_one(llm, prompt, sp)
+                finally:
+                    _write_runtime_control(
+                        runtime_control_path,
+                        unsafe_live_explore_replay=False,
+                        force_runtime_fallback=False,
+                    )
+                    _restore_env(graph_env)
+                fallback_env = _set_env_temporarily({
+                    'STATICITY_VLLM_RUNTIME_ACTIVE': '1',
+                    'STATICITY_VLLM_UNSAFE_LIVE_EXPLORE_REPLAY': None,
+                    'STATICITY_VLLM_FORCE_RUNTIME_FALLBACK': '1',
+                })
+                try:
+                    _write_runtime_control(
+                        runtime_control_path,
+                        unsafe_live_explore_replay=False,
+                        force_runtime_fallback=True,
+                    )
+                    fallback_ms, fallback_tokens, fallback_text = _timed_generate_one(llm, prompt, sp)
+                finally:
+                    _write_runtime_control(
+                        runtime_control_path,
+                        unsafe_live_explore_replay=False,
+                        force_runtime_fallback=False,
+                    )
+                    _restore_env(fallback_env)
+                correct = graph_tokens == fallback_tokens
+                useful = correct and graph_ms < fallback_ms
+                append_live_admission_observation(
+                    live_observations,
+                    template_id=match['template_id'],
+                    graph_ms=graph_ms,
+                    fallback_ms=fallback_ms,
+                    correct=correct,
+                    tokens=lens[vi],
+                    request_index=vi,
+                    extra={
+                        'action': match['action'],
+                        'template_aliases': match.get('template_aliases', []),
+                        'template_tokens': match['template_tokens'],
+                        'lo': match['lo'],
+                        'hi': match['hi'],
+                        'source': 'live_graph_replay',
+                        'trusted_graph_replay': True,
+                        'same_engine': True,
+                        'shadow_engine': False,
+                        'validation_mode': 'same_engine_two_pass',
+                        'fallback_config': 'forced_runtime_fallback',
+                        'candidate_capture_ms': capture_ms,
+                        'useful': bool(useful),
+                        'graph_output_token_ids': graph_tokens,
+                        'fallback_output_token_ids': fallback_tokens,
+                        'graph_output_text': graph_text,
+                        'fallback_output_text': fallback_text,
+                    },
+                )
+                live_same_engine_written += 1
+                live_same_engine_correct += int(correct)
+                live_same_engine_useful += int(useful)
+                live_same_engine_ms += capture_ms + graph_ms + fallback_ms
+                print(
+                    f"    [{vi+1}/{validate_n}] len={lens[vi]} "
+                    f"graph={graph_ms:.2f} ms fallback={fallback_ms:.2f} ms "
+                    f"correct={int(correct)} useful={int(useful)}"
+                )
         if batch_mode:
             torch.cuda.synchronize()
             start = time.perf_counter()
@@ -571,6 +1127,14 @@ def run_config(
             os.environ.pop('STATICITY_VLLM_UNSAFE_LIVE_EXPLORE_REPLAY', None)
         else:
             os.environ['STATICITY_VLLM_UNSAFE_LIVE_EXPLORE_REPLAY'] = old_unsafe_live_explore_replay
+        if old_force_runtime_fallback is None:
+            os.environ.pop('STATICITY_VLLM_FORCE_RUNTIME_FALLBACK', None)
+        else:
+            os.environ['STATICITY_VLLM_FORCE_RUNTIME_FALLBACK'] = old_force_runtime_fallback
+        if old_runtime_control is None:
+            os.environ.pop('STATICITY_VLLM_RUNTIME_CONTROL', None)
+        else:
+            os.environ['STATICITY_VLLM_RUNTIME_CONTROL'] = old_runtime_control
         if old_moe_capacity_buckets is None:
             os.environ.pop('STATICITY_VLLM_MOE_CAPACITY_BUCKETS', None)
         else:
@@ -635,6 +1199,18 @@ def run_config(
         'live_observation_template_id': live_observation_template_id,
         'live_observation_trusted': bool(live_observation_trusted),
         'live_shadow_observations_written': int(live_shadow_written),
+        'live_same_engine_validate': bool(live_same_engine_validate),
+        'live_same_engine_validate_limit': int(live_same_engine_validate_limit),
+        'live_same_engine_observations_written': int(live_same_engine_written),
+        'live_same_engine_correct': int(live_same_engine_correct),
+        'live_same_engine_useful': int(live_same_engine_useful),
+        'live_same_engine_validation_ms': float(live_same_engine_ms),
+        'live_isolated_probe': bool(live_isolated_probe),
+        'live_isolated_probe_returncode': isolated_probe_counts.get('returncode'),
+        'live_isolated_probe_observations': int(isolated_probe_counts.get('observations') or 0),
+        'live_isolated_probe_correct': int(isolated_probe_counts.get('correct') or 0),
+        'live_isolated_probe_useful': int(isolated_probe_counts.get('useful') or 0),
+        'runtime_control': runtime_control_path,
         'moe_capacity_buckets': moe_capacity_buckets,
         'dispatcher_profile': dispatch_profile,
         'runner_profile': runner_profile,
@@ -663,6 +1239,8 @@ def summarize_ranges(result):
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument('--live-admission-probe-worker', default=None,
+                    help=argparse.SUPPRESS)
     ap.add_argument('--workload', default='results/flowprefill_morspec_workload_16.json')
     ap.add_argument('--model', default='/mnt/models/Meta-Llama-3-8B-Instruct')
     ap.add_argument('--tp-size', type=int, default=1)
@@ -744,6 +1322,14 @@ def main():
                     help='stream fallback-vs-graph observations from the already-run baseline rows into the live admission file after each request')
     ap.add_argument('--live-capture', action='store_true',
                     help='enable same-engine capture machinery; strict live admission still keeps unvalidated templates on fallback by default')
+    ap.add_argument('--live-admission-same-engine-validate', action='store_true',
+                    help='before measured requests, validate candidate graph replay against forced fallback in the same LLM engine and stream trusted live_graph_replay observations')
+    ap.add_argument('--live-admission-same-engine-validate-limit', type=int, default=0,
+                    help='number of prompts to use for same-engine live validation; 0 validates the full selected workload')
+    ap.add_argument('--live-admission-isolated-probe', action='store_true',
+                    help='validate unsafe graph replay in an isolated worker before starting the measured serving engine; probe crashes become trusted negative observations')
+    ap.add_argument('--live-admission-isolated-probe-timeout-s', type=float, default=0.0,
+                    help='timeout for --live-admission-isolated-probe; 0 disables timeout')
     ap.add_argument('--moe-capacity-buckets', default=None,
                     help='comma-separated MoE expert capacity buckets used by routed-expert metadata profiling')
     ap.add_argument('--disable-prefix-caching', action='store_true',
@@ -760,6 +1346,9 @@ def main():
     ap.add_argument('--online-admission-max-p95-regression-ms', type=float, default=2.0)
     ap.add_argument('--online-admission-amortization-replays', type=int, default=32)
     args = ap.parse_args()
+    if args.live_admission_probe_worker:
+        run_live_admission_probe_worker(args.live_admission_probe_worker)
+        return
 
     workload = json.loads(Path(args.workload).read_text(encoding='utf-8'))
     reqs = workload['requests']
@@ -1041,6 +1630,10 @@ def main():
             live_capture=args.live_capture,
             live_observation_template_id=args.live_admission_template_id,
             live_shadow_rows=shadow_baseline_rows if args.live_admission_shadow_baseline else None,
+            live_same_engine_validate=args.live_admission_same_engine_validate,
+            live_same_engine_validate_limit=args.live_admission_same_engine_validate_limit,
+            live_isolated_probe=args.live_admission_isolated_probe,
+            live_isolated_probe_timeout_s=args.live_admission_isolated_probe_timeout_s,
             moe_capacity_buckets=args.moe_capacity_buckets,
             disable_prefix_caching=args.disable_prefix_caching,
         ))
@@ -1138,6 +1731,11 @@ def main():
             live_max_p95_regression_ms=args.live_admission_max_p95_regression_ms,
             live_capture=args.live_capture,
             live_shadow_rows=shadow_baseline_rows if args.live_admission_shadow_baseline else None,
+            live_observation_template_id=args.live_admission_template_id,
+            live_same_engine_validate=args.live_admission_same_engine_validate,
+            live_same_engine_validate_limit=args.live_admission_same_engine_validate_limit,
+            live_isolated_probe=args.live_admission_isolated_probe,
+            live_isolated_probe_timeout_s=args.live_admission_isolated_probe_timeout_s,
             moe_capacity_buckets=args.moe_capacity_buckets,
             disable_prefix_caching=args.disable_prefix_caching,
         ))
@@ -1181,6 +1779,11 @@ def main():
             live_max_p95_regression_ms=args.live_admission_max_p95_regression_ms,
             live_capture=args.live_capture,
             live_shadow_rows=shadow_baseline_rows if args.live_admission_shadow_baseline else None,
+            live_observation_template_id=args.live_admission_template_id,
+            live_same_engine_validate=args.live_admission_same_engine_validate,
+            live_same_engine_validate_limit=args.live_admission_same_engine_validate_limit,
+            live_isolated_probe=args.live_admission_isolated_probe,
+            live_isolated_probe_timeout_s=args.live_admission_isolated_probe_timeout_s,
             moe_capacity_buckets=args.moe_capacity_buckets,
             disable_prefix_caching=args.disable_prefix_caching,
         ))
@@ -1224,6 +1827,11 @@ def main():
             live_max_p95_regression_ms=args.live_admission_max_p95_regression_ms,
             live_capture=args.live_capture,
             live_shadow_rows=shadow_baseline_rows if args.live_admission_shadow_baseline else None,
+            live_observation_template_id=args.live_admission_template_id,
+            live_same_engine_validate=args.live_admission_same_engine_validate,
+            live_same_engine_validate_limit=args.live_admission_same_engine_validate_limit,
+            live_isolated_probe=args.live_admission_isolated_probe,
+            live_isolated_probe_timeout_s=args.live_admission_isolated_probe_timeout_s,
             moe_capacity_buckets=args.moe_capacity_buckets,
             disable_prefix_caching=args.disable_prefix_caching,
         ))

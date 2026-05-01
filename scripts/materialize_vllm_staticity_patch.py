@@ -35,6 +35,8 @@ def has_staticity_markers(path: Path) -> bool:
         "STATICITY_VLLM_MOE_PROFILE",
         "STATICITY_VLLM_LIVE_CAPTURE",
         "STATICITY_VLLM_ALLOW_RUNTIME_CUDAGRAPH_CAPTURE",
+        "STATICITY_VLLM_FORCE_RUNTIME_FALLBACK",
+        "STATICITY_VLLM_RUNTIME_CONTROL",
         "VLLM_CG_TRACE_FILE",
         "staticity_template_tokens",
         "_staticity_runtime_allows_graph",
