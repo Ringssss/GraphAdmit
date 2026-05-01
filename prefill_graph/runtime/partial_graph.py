@@ -42,6 +42,17 @@ class PartialGraphDecision:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass
+class PartialGraphRunResult:
+    action: str
+    segment: str | None
+    template_id: str | None
+    reason: str
+    output: Any
+    fallback_used: bool = False
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
 class PartialGraphTemplateManager:
     """Guarded partial-graph dispatcher for control-flow dynamic functions.
 
@@ -57,6 +68,7 @@ class PartialGraphTemplateManager:
         self._segments: list[PartialGraphSegment] = []
         self._guards: dict[str, GuardFn] = {}
         self._runners: dict[str, RunnerFn] = {}
+        self._fallback_runners: dict[str, RunnerFn] = {}
         self._admitted: set[str] = set()
         self._blacklist: dict[str, str] = {}
         self._decision_counts: dict[str, int] = {}
@@ -67,6 +79,7 @@ class PartialGraphTemplateManager:
         *,
         guard: GuardFn | None = None,
         runner: RunnerFn | None = None,
+        fallback_runner: RunnerFn | None = None,
         admitted: bool = False,
     ) -> None:
         self._segments.append(segment)
@@ -75,6 +88,8 @@ class PartialGraphTemplateManager:
             self._guards[segment.template_id] = guard
         if runner is not None:
             self._runners[segment.template_id] = runner
+        if fallback_runner is not None:
+            self._fallback_runners[segment.template_id] = fallback_runner
         if admitted:
             self._admitted.add(segment.template_id)
 
@@ -126,6 +141,56 @@ class PartialGraphTemplateManager:
             raise RuntimeError(f"no runner registered for {decision.template_id}")
         return runner(context)
 
+    def run_partial(
+        self,
+        context: dict[str, Any],
+        *,
+        fallback_runner: RunnerFn | None = None,
+    ) -> PartialGraphRunResult:
+        decision = self.decide(context)
+        if decision.action == "graph" and decision.template_id is not None:
+            runner = self._runners.get(decision.template_id)
+            if runner is None:
+                runner = self._fallback_runners.get(decision.template_id)
+                if runner is None:
+                    if fallback_runner is None:
+                        raise RuntimeError(
+                            f"no runner registered for {decision.template_id}"
+                        )
+                    runner = fallback_runner
+                output = runner(context)
+                return PartialGraphRunResult(
+                    action=decision.fallback_action,
+                    segment=decision.segment,
+                    template_id=decision.template_id,
+                    reason="missing_graph_runner_fallback",
+                    output=output,
+                    fallback_used=True,
+                    metadata=decision.metadata,
+                )
+            output = runner(context)
+            return PartialGraphRunResult(
+                action="graph",
+                segment=decision.segment,
+                template_id=decision.template_id,
+                reason=decision.reason,
+                output=output,
+                fallback_used=False,
+                metadata=decision.metadata,
+            )
+        if fallback_runner is None:
+            raise RuntimeError(f"partial graph fallback required: {decision.reason}")
+        output = fallback_runner(context)
+        return PartialGraphRunResult(
+            action=decision.action,
+            segment=decision.segment,
+            template_id=decision.template_id,
+            reason=decision.reason,
+            output=output,
+            fallback_used=True,
+            metadata=decision.metadata,
+        )
+
     def _count(self, key: str) -> None:
         self._decision_counts[key] = self._decision_counts.get(key, 0) + 1
 
@@ -135,6 +200,8 @@ class PartialGraphTemplateManager:
             "segments": [segment.signature() for segment in self._segments],
             "admitted": sorted(self._admitted),
             "blacklist": dict(sorted(self._blacklist.items())),
+            "runners": sorted(self._runners),
+            "fallback_runners": sorted(self._fallback_runners),
             "decision_counts": dict(sorted(self._decision_counts.items())),
         }
 

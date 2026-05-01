@@ -127,13 +127,21 @@ GraphAdmit organizes dynamic CUDA Graph serving into three stages.
 
    Recoverable dynamicity is mapped to graph-stable templates through fixed
    metadata arenas, token-axis buckets, key collapse, MoE metadata templates,
-   and residual capture.
+   and same-engine residual capture.
 
 3. **Execute with admission and guards.**
 
    The vLLM dispatcher uses runtime policy rules plus live observations to
    admit, reject, blacklist, and evict templates.  Online admission uses
    token-correctness and latency evidence, not graph hit rate alone.
+
+   `--live-capture` enables the runtime machinery needed for same-engine
+   residual capture, but the default path is still strict fail-closed: an
+   unvalidated residual template falls back instead of entering CUDA Graph
+   capture or replay.  Positive graph admission requires trusted live graph
+   replay evidence; generic shadow positives are not trusted by default.  A
+   separate debug knob, `STATICITY_VLLM_LIVE_CAPTURE_ONLY_EXPLORE=1`, allows
+   capture-only experiments, but it is not the safe serving default.
 
 The target metric is **useful coverage**: requests served by graph replay that
 are both correct and faster than fallback.
@@ -179,15 +187,40 @@ git apply ../../patches/vllm_staticity.patch
 pip install -e .
 ```
 
+The installable CLI can generate and export the runtime environment:
+
+```bash
+graphadmit make-policy \
+  --bucket-preset sglang-pcg \
+  --max-tokens 4096 \
+  --base-capture-size 512 \
+  --live-capture \
+  --output results/runtime_policy_graphadmit_live.json
+
+graphadmit vllm-env \
+  --policy results/runtime_policy_graphadmit_live.json \
+  --observations results/live_observations.jsonl \
+  --live-capture
+```
+
+For production-style fail-closed experiments, leave
+`STATICITY_VLLM_LIVE_CAPTURE_ONLY_EXPLORE` unset.  Setting it to `1` is useful
+only for debugging whether a candidate can be captured; it should not be used
+as evidence that the user-visible path is token-correct.
+
 If you already have the patched local tree, `git apply --check` will fail
 because the changes are present.  In that case, `git apply --reverse --check
 ../../patches/vllm_staticity.patch` should succeed.
 
 The patch touches:
 
+- `vllm/_cg_trace.py`
+- `vllm/compilation/monitor.py`
+- `vllm/compilation/cuda_graph.py`
 - `vllm/v1/cudagraph_dispatcher.py`
 - `vllm/v1/core/sched/scheduler.py`
 - `vllm/v1/worker/gpu_model_runner.py`
+- `vllm/v1/worker/gpu_ubatch_wrapper.py`
 - `vllm/model_executor/layers/fused_moe/routed_experts_capturer.py`
 
 Useful environment variables exposed by the patch:
@@ -198,6 +231,8 @@ STATICITY_VLLM_RUNTIME_ACTIVE             Enable/disable GraphAdmit runtime poli
 STATICITY_VLLM_BASE_CAPTURE_SIZE          vLLM default graph ceiling, usually 512
 STATICITY_VLLM_LIVE_ADMISSION             Enable live admission
 STATICITY_VLLM_LIVE_OBSERVATIONS          JSONL observation stream
+STATICITY_VLLM_LIVE_CAPTURE               Enable same-engine capture machinery
+STATICITY_VLLM_LIVE_CAPTURE_ONLY_EXPLORE  Debug-only capture without replay admission; default off
 STATICITY_VLLM_LIVE_EXPLORE               Explore templates until min_samples
 STATICITY_VLLM_LIVE_MIN_SAMPLES           Per-template support threshold
 STATICITY_VLLM_LIVE_MIN_USEFUL_RATE       Useful-rate threshold
@@ -293,6 +328,15 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 python benchmarks/vllm_flowprefill_workload.py \
   --profile-prefix results/vllm_qwen35_35b_16_live_compare \
   --max-num-seqs 8
 ```
+
+`--live-admission-shadow-baseline` writes offline graph-vs-baseline rows for
+analysis and next-round policy refresh.  The strict runtime does not trust
+those rows as positive live admission evidence.  By default, positive admission
+requires `source=live_graph_replay` or `source=trusted_live_graph_replay`;
+`graph_replay_shadow` positives require the explicit debug knob
+`STATICITY_VLLM_TRUST_SHADOW_POSITIVE_OBSERVATIONS=1`.  Negative
+`graph_replay_shadow` observations are still consumed to blacklist unsafe
+templates.
 
 Run SGLang baselines:
 
@@ -447,13 +491,13 @@ kept in `results/`.
 
 ## Limitations
 
-- The current live admission harness uses a request-stream observation loop:
-  request *i* writes graph-vs-fallback evidence, and request *i+1* can use that
-  evidence.  It is stronger than offline trace calibration, but it is not yet
-  same-request in-engine double execution.
-- vLLM fixes CUDA graph capture sizes at engine initialization.  New residual
-  capture templates can be learned online, but they require a new engine start
-  unless the engine itself grows dynamic graph-capture support.
+- The strict live admission path only trusts graph-replay shadow evidence.
+  Offline shadow-baseline rows remain useful for analysis and next-round policy
+  refresh, but they are not treated as live admission proof.
+- vLLM fixes most CUDA graph capture sizes at engine initialization.  The patch
+  exposes fail-closed lazy capture plumbing, but unvalidated residual templates
+  fall back by default.  User-visible capture-only exploration is a debug path,
+  not the safe serving mode.
 - The Qwen3.5 hybrid model shows backend-level one-token differences on
   small/default paths across vLLM modes.  The admitted extra templates were
   token-correct, but whole-run token identity should not be claimed for that

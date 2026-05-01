@@ -60,6 +60,7 @@ def cmd_make_policy(args: argparse.Namespace) -> int:
         live_min_useful_rate=args.live_min_useful_rate,
         live_min_saving_ms=args.live_min_saving_ms,
         live_max_p95_regression_ms=args.live_max_p95_regression_ms,
+        live_capture=args.live_capture,
     )
     output = write_policy(policy, args.output)
     runtime_policy = policy["runtime_policy"]
@@ -70,6 +71,7 @@ def cmd_make_policy(args: argparse.Namespace) -> int:
             "extra_capture_sizes": runtime_policy["residual_capture"]["extra_capture_sizes"],
             "rules": len(runtime_policy["rules"]),
             "live_admission": runtime_policy["live_admission"],
+            "live_capture": runtime_policy["live_capture"],
         }
     )
     return 0
@@ -90,6 +92,7 @@ def cmd_vllm_env(args: argparse.Namespace) -> int:
         shadow_baseline=not args.no_shadow_baseline,
         fixed_metadata_arena=not args.no_fixed_metadata_arena,
         template_scheduler=args.template_scheduler,
+        live_capture=args.live_capture,
     )
     if args.json:
         _print_json(env)
@@ -103,6 +106,7 @@ def cmd_vllm_serve(args: argparse.Namespace) -> int:
         args.policy,
         observations=args.observations,
         template_scheduler=args.template_scheduler,
+        live_capture=args.live_capture,
     )
     vllm_args = list(args.vllm_args)
     if vllm_args and vllm_args[0] == "--":
@@ -156,6 +160,14 @@ def build_parser() -> argparse.ArgumentParser:
     policy.add_argument("--live-min-useful-rate", type=float, default=0.67)
     policy.add_argument("--live-min-saving-ms", type=float, default=0.5)
     policy.add_argument("--live-max-p95-regression-ms", type=float, default=5.0)
+    policy.add_argument(
+        "--live-capture",
+        action="store_true",
+        help=(
+            "enable same-engine capture machinery; unvalidated templates still "
+            "fallback unless trusted live graph-replay observations admit them"
+        ),
+    )
     policy.set_defaults(func=cmd_make_policy)
 
     vllm_patch = sub.add_parser("vllm-patch", help="check or apply the vLLM/FlowPrefill patch")
@@ -172,6 +184,7 @@ def build_parser() -> argparse.ArgumentParser:
     vllm_env.add_argument("--no-shadow-baseline", action="store_true")
     vllm_env.add_argument("--no-fixed-metadata-arena", action="store_true")
     vllm_env.add_argument("--template-scheduler", action="store_true")
+    vllm_env.add_argument("--live-capture", action=argparse.BooleanOptionalAction, default=None)
     vllm_env.add_argument("--json", action="store_true")
     vllm_env.set_defaults(func=cmd_vllm_env)
 
@@ -179,6 +192,7 @@ def build_parser() -> argparse.ArgumentParser:
     vllm_serve.add_argument("--policy", required=True)
     vllm_serve.add_argument("--observations", default=None)
     vllm_serve.add_argument("--template-scheduler", action="store_true")
+    vllm_serve.add_argument("--live-capture", action=argparse.BooleanOptionalAction, default=None)
     vllm_serve.add_argument("vllm_args", nargs=argparse.REMAINDER)
     vllm_serve.set_defaults(func=cmd_vllm_serve)
 

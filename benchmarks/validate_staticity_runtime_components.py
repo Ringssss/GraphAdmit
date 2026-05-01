@@ -12,16 +12,26 @@ if str(ROOT) not in sys.path:
 
 from prefill_graph.runtime import (
     ArenaTemplateRegistry,
+    CaptureResult,
     StaticityControlPlane,
     TemplateLifecycle,
     ExpertMetadataCanonicalizer,
     ExpertTrafficTemplate,
+    LiveCaptureCallbacks,
+    LiveTemplateSpec,
+    MoEDispatchTemplate,
+    MoEDispatchTemplateRegistry,
     OnlineSelfLearningAdmissionController,
     PartialGraphTemplateManager,
+    ReplayResult,
+    SameEngineLiveCaptureManager,
     SlaAwareTemplateScheduler,
     TemplateSchedulingSignal,
     TokenAxisCanonicalizer,
     TokenAxisTemplate,
+    ValidationResult,
+    WorkloadDriftDetector,
+    WorkloadObservation,
     attention_segment_for_mode,
     function_branch_manifest,
     moe_dispatch_manifest,
@@ -116,6 +126,63 @@ def validate_moe() -> dict[str, object]:
     }
 
 
+def validate_moe_dispatch_templates() -> dict[str, object]:
+    admission = OnlineSelfLearningAdmissionController(
+        min_samples=2,
+        min_useful_rate=1.0,
+        min_saving_ms=1.0,
+        max_p95_regression_ms=1.0,
+    )
+    template = MoEDispatchTemplate(
+        "moe:cap4:topk1",
+        capacity_bucket=4,
+        max_experts=4,
+        top_k=1,
+        action="moe_graph",
+        fallback_action="compiled",
+        max_tokens=16,
+    )
+    registry = MoEDispatchTemplateRegistry([template], admission=admission)
+    before = registry.decide(
+        expert_ids=[0, 1, 1, 2],
+        expert_counts=[1, 2, 1, 0],
+        tokens=4,
+        top_k=1,
+    ).__dict__
+    registry.observe(
+        template.template_id,
+        graph_ms=8.0,
+        fallback_ms=12.0,
+        correct=True,
+        metadata={"capacity_bucket": 4},
+    )
+    registry.observe(
+        template.template_id,
+        graph_ms=7.0,
+        fallback_ms=12.0,
+        correct=True,
+        metadata={"capacity_bucket": 4},
+    )
+    after = registry.decide(
+        expert_ids=[0, 1, 1, 2],
+        expert_counts=[1, 2, 1, 0],
+        tokens=4,
+        top_k=1,
+    ).__dict__
+    overflow = registry.decide(
+        expert_ids=[0] * 8,
+        expert_counts=[8, 0, 0, 0],
+        tokens=8,
+        top_k=1,
+    ).__dict__
+    return {
+        "before_admission": before,
+        "after_admission": after,
+        "overflow": overflow,
+        "summary": registry.summary(),
+    }
+
+
 def validate_partial_graph() -> dict[str, object]:
     manager = PartialGraphTemplateManager(default_fallback="compiled")
     attn = attention_segment_for_mode("sliding_window", template_tokens=1024)
@@ -149,8 +216,18 @@ def validate_partial_graph() -> dict[str, object]:
         manager.decide({"attention_mode": "full", "num_tokens": 512, "max_expert_count": 32}).__dict__,
         manager.decide({"attention_mode": "full", "num_tokens": 512, "max_expert_count": 128}).__dict__,
     ]
+    graph_run = manager.run_partial(
+        {"attention_mode": "sliding_window", "num_tokens": 512},
+        fallback_runner=lambda ctx: {"path": "fallback", "tokens": ctx["num_tokens"]},
+    ).__dict__
+    fallback_run = manager.run_partial(
+        {"attention_mode": "hybrid_unknown", "num_tokens": 512},
+        fallback_runner=lambda ctx: {"path": "fallback", "tokens": ctx["num_tokens"]},
+    ).__dict__
     return {
         "decisions": decisions,
+        "graph_run": graph_run,
+        "fallback_run": fallback_run,
         "summary": manager.summary(),
         "diffusion_manifest": diffusion.to_json(),
     }
@@ -207,8 +284,21 @@ def validate_control_plane() -> dict[str, object]:
 
 def validate_scheduler() -> dict[str, object]:
     signals = {
-        "t=832": TemplateSchedulingSignal("t=832", admitted=True, expected_saving_ms=10.0),
+        "t=832": TemplateSchedulingSignal(
+            "t=832",
+            admitted=True,
+            expected_saving_ms=10.0,
+            useful_rate=0.9,
+            max_wait_ms=2.0,
+        ),
         "t=128": TemplateSchedulingSignal("t=128", admitted=False, expected_saving_ms=0.0),
+        "t=drift": TemplateSchedulingSignal(
+            "t=drift",
+            admitted=True,
+            expected_saving_ms=10.0,
+            useful_rate=0.9,
+            drifted=True,
+        ),
     }
     scheduler = SlaAwareTemplateScheduler(
         lambda req: req["template_id"],
@@ -217,11 +307,13 @@ def validate_scheduler() -> dict[str, object]:
         max_batch_size=2,
         sla_p99_budget_ms=20.0,
         adaptive_wait=False,
+        min_useful_rate=0.75,
     )
     flushed = []
     flushed.extend(scheduler.add({"id": 1, "template_id": "t=832"}, 0.0))
     flushed.extend(scheduler.add({"id": 2, "template_id": "t=832"}, 1.0))
     flushed.extend(scheduler.add({"id": 3, "template_id": "t=128"}, 2.0))
+    flushed.extend(scheduler.add({"id": 4, "template_id": "t=drift"}, 3.0))
     flushed.extend(scheduler.finish())
     return {
         "batches": [
@@ -233,6 +325,96 @@ def validate_scheduler() -> dict[str, object]:
             for batch in flushed
         ],
         "summary": scheduler.summary(),
+    }
+
+
+def validate_same_engine_live_capture() -> dict[str, object]:
+    manager = SameEngineLiveCaptureManager(
+        min_samples=2,
+        min_useful_rate=1.0,
+        min_saving_ms=1.0,
+        max_p95_regression_ms=1.0,
+        max_templates=1,
+        validation_interval=8,
+        amortization_replays=8,
+    )
+    manager.register(
+        LiveTemplateSpec(
+            "tokens=832",
+            lo=744,
+            hi=805,
+            template_tokens=832,
+            action="ours_cp",
+            fallback_action="cp",
+        )
+    )
+    callbacks = LiveCaptureCallbacks(
+        capture=lambda spec, ctx: CaptureResult(
+            captured=True,
+            capture_ms=2.0,
+            warmup_ms=1.0,
+            memory_bytes=4096,
+            handle=object(),
+        ),
+        replay=lambda spec, ctx: ReplayResult(
+            output={"token": int(ctx["tokens"]) + 1},
+            latency_ms=40.0,
+        ),
+        fallback=lambda spec, ctx: ReplayResult(
+            output={"token": int(ctx["tokens"]) + 1},
+            latency_ms=55.0,
+        ),
+        validate=lambda graph, fallback, ctx: ValidationResult(
+            correct=graph == fallback,
+        ),
+    )
+    runs = [
+        manager.run({"tokens": tokens}, callbacks).__dict__
+        for tokens in (750, 760, 770)
+    ]
+    policy = manager.export_policy(default_action="cp")
+    return {
+        "runs": runs,
+        "policy": policy,
+        "summary": manager.summary(include_events=False),
+    }
+
+
+def validate_workload_drift() -> dict[str, object]:
+    detector = WorkloadDriftDetector(
+        window=4,
+        reference_window=8,
+        min_samples=4,
+        max_mean_token_shift=0.30,
+    )
+    decisions = []
+    for _ in range(4):
+        decisions.append(
+            detector.observe(
+                WorkloadObservation(
+                    tokens=512,
+                    template_id="tokens=512",
+                    graph_used=True,
+                    useful=True,
+                    latency_ms=10.0,
+                )
+            ).__dict__
+        )
+    for _ in range(4):
+        decisions.append(
+            detector.observe(
+                WorkloadObservation(
+                    tokens=2048,
+                    template_id="tokens=2048",
+                    graph_used=False,
+                    useful=False,
+                    latency_ms=50.0,
+                )
+            ).__dict__
+        )
+    return {
+        "decisions": decisions,
+        "summary": detector.summary(),
     }
 
 
@@ -255,8 +437,11 @@ def main() -> None:
         "control_plane": validate_control_plane(),
         "token_axis_arena": validate_token_axis(),
         "moe_expert_metadata": validate_moe(),
+        "moe_dispatch_templates": validate_moe_dispatch_templates(),
         "partial_graph": validate_partial_graph(),
+        "same_engine_live_capture": validate_same_engine_live_capture(),
         "scheduler": validate_scheduler(),
+        "workload_drift": validate_workload_drift(),
         "registry": {
             "token_policy_ranges": registry.to_policy_ranges(),
             "token_template_for_790": registry.token_template_for(790).rule(),

@@ -161,6 +161,9 @@ class TemplateSchedulingSignal:
     expected_saving_ms: float
     p95_regression_ms: float = 0.0
     min_batch_size: int = 1
+    useful_rate: float = 1.0
+    max_wait_ms: float | None = None
+    drifted: bool = False
 
 
 class SlaAwareTemplateScheduler(TemplateAwareScheduler):
@@ -175,6 +178,7 @@ class SlaAwareTemplateScheduler(TemplateAwareScheduler):
         max_batch_size: int = 0,
         sla_p99_budget_ms: float | None = None,
         wait_fraction_of_saving: float = 0.5,
+        min_useful_rate: float = 0.5,
         adaptive_wait: bool = True,
         adaptive_min_samples: int = 4,
         adaptive_min_hit_rate: float = 0.5,
@@ -190,14 +194,23 @@ class SlaAwareTemplateScheduler(TemplateAwareScheduler):
         self.signal_fn = signal_fn
         self.sla_p99_budget_ms = sla_p99_budget_ms
         self.wait_fraction_of_saving = float(wait_fraction_of_saving)
+        self.min_useful_rate = float(min_useful_rate)
         self._sla_rejected = 0
         self._not_admitted_rejected = 0
         self._saving_rejected = 0
+        self._useful_rate_rejected = 0
+        self._drift_rejected = 0
 
     def _effective_wait_budget(self, template_id: str, arrival_ms: float, requested_wait_ms: float) -> float:
         signal = self.signal_fn(template_id)
         if signal is None or not signal.admitted:
             self._not_admitted_rejected += 1
+            return 0.0
+        if signal.drifted:
+            self._drift_rejected += 1
+            return 0.0
+        if signal.useful_rate < self.min_useful_rate:
+            self._useful_rate_rejected += 1
             return 0.0
         if signal.expected_saving_ms <= 0.0:
             self._saving_rejected += 1
@@ -206,6 +219,8 @@ class SlaAwareTemplateScheduler(TemplateAwareScheduler):
             requested_wait_ms,
             signal.expected_saving_ms * self.wait_fraction_of_saving,
         )
+        if signal.max_wait_ms is not None:
+            wait_budget = min(wait_budget, float(signal.max_wait_ms))
         if self.sla_p99_budget_ms is not None:
             request_deadline = self.sla_p99_budget_ms - max(0.0, signal.p95_regression_ms)
             if request_deadline <= 0.0:
@@ -219,8 +234,11 @@ class SlaAwareTemplateScheduler(TemplateAwareScheduler):
         payload.update({
             "sla_p99_budget_ms": self.sla_p99_budget_ms,
             "wait_fraction_of_saving": self.wait_fraction_of_saving,
+            "min_useful_rate": self.min_useful_rate,
             "sla_rejected": self._sla_rejected,
             "not_admitted_rejected": self._not_admitted_rejected,
             "saving_rejected": self._saving_rejected,
+            "useful_rate_rejected": self._useful_rate_rejected,
+            "drift_rejected": self._drift_rejected,
         })
         return payload

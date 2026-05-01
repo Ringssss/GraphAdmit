@@ -95,12 +95,18 @@ def env_for_policy(
     shadow_baseline: bool = True,
     fixed_metadata_arena: bool = True,
     template_scheduler: bool = False,
+    live_capture: bool | None = None,
 ) -> dict[str, str]:
     policy_path = Path(policy).resolve()
     data = load_policy(policy_path)
     runtime_policy: dict[str, Any] = data.get("runtime_policy", data)
     live = runtime_policy.get("live_admission", {})
+    capture = runtime_policy.get("live_capture", {})
     live_enabled = bool(live.get("enabled", False)) if live_admission is None else bool(live_admission)
+    live_capture_enabled = (
+        bool(capture.get("enabled", False))
+        if live_capture is None else bool(live_capture)
+    )
 
     env = {
         "STATICITY_VLLM_RUNTIME_POLICY": str(policy_path),
@@ -112,6 +118,10 @@ def env_for_policy(
         "STATICITY_VLLM_LIVE_MIN_SAVING_MS": str(float(live.get("min_saving_ms", 0.5))),
         "STATICITY_VLLM_FIXED_METADATA_ARENA": "1" if fixed_metadata_arena else "0",
         "STATICITY_VLLM_TEMPLATE_SCHEDULER": "1" if template_scheduler else "0",
+        "STATICITY_VLLM_LIVE_CAPTURE": "1" if live_capture_enabled else "0",
+        "STATICITY_VLLM_ALLOW_RUNTIME_CUDAGRAPH_CAPTURE": (
+            "1" if live_capture_enabled else "0"
+        ),
         "STATICITY_VLLM_LIVE_SHADOW_BASELINE": "1" if shadow_baseline else "0",
     }
     if live.get("max_p95_regression_ms") is not None:

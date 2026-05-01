@@ -87,7 +87,13 @@ def runtime_policy_capture_sizes(path, base_capture_size):
     return sorted(size for size in sizes if size > int(base_capture_size))
 
 
-def runtime_policy_graph_template(path, tokens):
+def runtime_policy_graph_template(
+    path,
+    tokens,
+    *,
+    num_reqs=1,
+    template_id_style='bucket',
+):
     if not path:
         return None
     try:
@@ -118,8 +124,34 @@ def runtime_policy_graph_template(path, tokens):
             return None
         if action not in {'ours', 'ours_cp'}:
             return None
+        req_part = '*' if num_reqs is None else str(int(num_reqs))
+        range_template_id = (
+            f'{action}:{lo}:{hi}:template={template_tokens}:reqs={req_part}'
+        )
+        wildcard_template_id = (
+            f'{action}:{lo}:{hi}:template={template_tokens}:reqs=*'
+        )
+        bucket_template_id = f'tokens={template_tokens}'
+        exact_template_id = (
+            f'{action}:{lo}:{hi}:tokens={int(tokens)}:'
+            f'template={template_tokens}:reqs={req_part}'
+        )
+        aliases = [range_template_id]
+        if wildcard_template_id not in aliases:
+            aliases.append(wildcard_template_id)
+        if bucket_template_id not in aliases:
+            aliases.append(bucket_template_id)
+        if exact_template_id not in aliases:
+            aliases.insert(0, exact_template_id)
         return {
-            'template_id': f'tokens={template_tokens}',
+            'template_id': (
+                exact_template_id
+                if template_id_style == 'exact'
+                else range_template_id
+                if template_id_style == 'range'
+                else bucket_template_id
+            ),
+            'template_aliases': aliases,
             'action': action,
             'template_tokens': template_tokens,
             'lo': lo,
@@ -182,8 +214,15 @@ def run_config(
     live_min_useful_rate=0.0,
     live_min_saving_ms=0.0,
     live_max_p95_regression_ms=None,
+    live_capture=False,
+    live_shadow_graph_replay=False,
+    live_observations_clear=False,
+    live_observation_source='offline_shadow_baseline',
+    live_observation_template_id='exact',
+    live_observation_trusted=False,
     live_shadow_rows=None,
     moe_capacity_buckets=None,
+    disable_prefix_caching=False,
 ):
     from vllm import LLM, SamplingParams
     old_dispatch_profile = os.environ.get('STATICITY_VLLM_CG_PROFILE')
@@ -210,7 +249,13 @@ def run_config(
     old_live_min_useful_rate = os.environ.get('STATICITY_VLLM_LIVE_MIN_USEFUL_RATE')
     old_live_min_saving_ms = os.environ.get('STATICITY_VLLM_LIVE_MIN_SAVING_MS')
     old_live_max_p95_regression_ms = os.environ.get('STATICITY_VLLM_LIVE_MAX_P95_REGRESSION_MS')
+    old_live_capture = os.environ.get('STATICITY_VLLM_LIVE_CAPTURE')
+    old_allow_runtime_capture = os.environ.get('STATICITY_VLLM_ALLOW_RUNTIME_CUDAGRAPH_CAPTURE')
+    old_unsafe_live_explore_replay = os.environ.get('STATICITY_VLLM_UNSAFE_LIVE_EXPLORE_REPLAY')
     old_moe_capacity_buckets = os.environ.get('STATICITY_VLLM_MOE_CAPACITY_BUCKETS')
+    old_exact_token_templates = os.environ.get('STATICITY_VLLM_EXACT_TOKEN_TEMPLATES')
+    old_trust_shadow_positive = os.environ.get('STATICITY_VLLM_TRUST_SHADOW_POSITIVE_OBSERVATIONS')
+    old_positive_alias_expansion = os.environ.get('STATICITY_VLLM_POSITIVE_ALIAS_EXPANSION')
     dispatch_profile = None
     runner_profile = None
     attn_profile = None
@@ -260,7 +305,7 @@ def run_config(
         os.environ['STATICITY_VLLM_LIVE_ADMISSION'] = '1'
         if live_observations:
             os.environ['STATICITY_VLLM_LIVE_OBSERVATIONS'] = live_observations
-            if live_shadow_rows is not None:
+            if live_observations_clear:
                 obs = Path(live_observations)
                 obs.parent.mkdir(parents=True, exist_ok=True)
                 obs.write_text('', encoding='utf-8')
@@ -271,6 +316,16 @@ def run_config(
         os.environ['STATICITY_VLLM_LIVE_MIN_SAVING_MS'] = str(float(live_min_saving_ms))
         if live_max_p95_regression_ms is not None:
             os.environ['STATICITY_VLLM_LIVE_MAX_P95_REGRESSION_MS'] = str(float(live_max_p95_regression_ms))
+    if live_capture:
+        os.environ['STATICITY_VLLM_LIVE_CAPTURE'] = '1'
+        os.environ['STATICITY_VLLM_ALLOW_RUNTIME_CUDAGRAPH_CAPTURE'] = '1'
+    if live_shadow_graph_replay:
+        os.environ['STATICITY_VLLM_UNSAFE_LIVE_EXPLORE_REPLAY'] = '1'
+    if live_observation_template_id == 'exact':
+        os.environ['STATICITY_VLLM_EXACT_TOKEN_TEMPLATES'] = '1'
+    if live_observation_source == 'graph_replay_shadow' and not live_shadow_graph_replay:
+        os.environ['STATICITY_VLLM_TRUST_SHADOW_POSITIVE_OBSERVATIONS'] = '0'
+        os.environ['STATICITY_VLLM_POSITIVE_ALIAS_EXPANSION'] = '0'
     if moe_capacity_buckets:
         os.environ['STATICITY_VLLM_MOE_CAPACITY_BUCKETS'] = moe_capacity_buckets
     cc = {}
@@ -290,6 +345,8 @@ def run_config(
         enable_chunked_prefill=chunked,
         enable_return_routed_experts=enable_return_routed_experts,
     )
+    if disable_prefix_caching:
+        kw['enable_prefix_caching'] = False
     if not chunked:
         kw['max_num_batched_tokens'] = max_model_len
     if max_num_seqs:
@@ -324,7 +381,12 @@ def run_config(
                 text = output.text if output is not None else ''
                 outputs.append({'token_ids': [int(x) for x in token_ids], 'text': text})
                 if live_shadow_rows is not None and live_observations and runtime_policy:
-                    match = runtime_policy_graph_template(runtime_policy, lens[i])
+                    match = runtime_policy_graph_template(
+                        runtime_policy,
+                        lens[i],
+                        num_reqs=1,
+                        template_id_style=live_observation_template_id,
+                    )
                     if match and i < len(live_shadow_rows):
                         ref = live_shadow_rows[i]
                         ref_tokens = ref.get('output_token_ids', [])
@@ -339,10 +401,13 @@ def run_config(
                             request_index=i,
                             extra={
                                 'action': match['action'],
+                                'template_aliases': match.get('template_aliases', []),
                                 'template_tokens': match['template_tokens'],
                                 'lo': match['lo'],
                                 'hi': match['hi'],
-                                'source': 'batch_shadow_baseline',
+                                'source': live_observation_source,
+                                'trusted_graph_replay': bool(live_observation_trusted),
+                                'shadow_engine': bool(live_shadow_graph_replay),
                                 'fallback_config': ref.get('config', 'shadow_baseline'),
                             },
                         )
@@ -361,7 +426,12 @@ def run_config(
                 text = output.text if output is not None else ''
                 outputs.append({'token_ids': [int(x) for x in token_ids], 'text': text})
                 if live_shadow_rows is not None and live_observations and runtime_policy:
-                    match = runtime_policy_graph_template(runtime_policy, lens[i])
+                    match = runtime_policy_graph_template(
+                        runtime_policy,
+                        lens[i],
+                        num_reqs=1,
+                        template_id_style=live_observation_template_id,
+                    )
                     if match and i < len(live_shadow_rows):
                         ref = live_shadow_rows[i]
                         ref_tokens = ref.get('output_token_ids', [])
@@ -376,10 +446,13 @@ def run_config(
                             request_index=i,
                             extra={
                                 'action': match['action'],
+                                'template_aliases': match.get('template_aliases', []),
                                 'template_tokens': match['template_tokens'],
                                 'lo': match['lo'],
                                 'hi': match['hi'],
-                                'source': 'shadow_baseline',
+                                'source': live_observation_source,
+                                'trusted_graph_replay': bool(live_observation_trusted),
+                                'shadow_engine': bool(live_shadow_graph_replay),
                                 'fallback_config': ref.get('config', 'shadow_baseline'),
                             },
                         )
@@ -486,10 +559,34 @@ def run_config(
             os.environ.pop('STATICITY_VLLM_LIVE_MAX_P95_REGRESSION_MS', None)
         else:
             os.environ['STATICITY_VLLM_LIVE_MAX_P95_REGRESSION_MS'] = old_live_max_p95_regression_ms
+        if old_live_capture is None:
+            os.environ.pop('STATICITY_VLLM_LIVE_CAPTURE', None)
+        else:
+            os.environ['STATICITY_VLLM_LIVE_CAPTURE'] = old_live_capture
+        if old_allow_runtime_capture is None:
+            os.environ.pop('STATICITY_VLLM_ALLOW_RUNTIME_CUDAGRAPH_CAPTURE', None)
+        else:
+            os.environ['STATICITY_VLLM_ALLOW_RUNTIME_CUDAGRAPH_CAPTURE'] = old_allow_runtime_capture
+        if old_unsafe_live_explore_replay is None:
+            os.environ.pop('STATICITY_VLLM_UNSAFE_LIVE_EXPLORE_REPLAY', None)
+        else:
+            os.environ['STATICITY_VLLM_UNSAFE_LIVE_EXPLORE_REPLAY'] = old_unsafe_live_explore_replay
         if old_moe_capacity_buckets is None:
             os.environ.pop('STATICITY_VLLM_MOE_CAPACITY_BUCKETS', None)
         else:
             os.environ['STATICITY_VLLM_MOE_CAPACITY_BUCKETS'] = old_moe_capacity_buckets
+        if old_exact_token_templates is None:
+            os.environ.pop('STATICITY_VLLM_EXACT_TOKEN_TEMPLATES', None)
+        else:
+            os.environ['STATICITY_VLLM_EXACT_TOKEN_TEMPLATES'] = old_exact_token_templates
+        if old_trust_shadow_positive is None:
+            os.environ.pop('STATICITY_VLLM_TRUST_SHADOW_POSITIVE_OBSERVATIONS', None)
+        else:
+            os.environ['STATICITY_VLLM_TRUST_SHADOW_POSITIVE_OBSERVATIONS'] = old_trust_shadow_positive
+        if old_positive_alias_expansion is None:
+            os.environ.pop('STATICITY_VLLM_POSITIVE_ALIAS_EXPANSION', None)
+        else:
+            os.environ['STATICITY_VLLM_POSITIVE_ALIAS_EXPANSION'] = old_positive_alias_expansion
     gc.collect(); torch.cuda.empty_cache(); time.sleep(2)
     arr = np.array(ttfts)
     return {
@@ -532,12 +629,18 @@ def run_config(
         'live_min_useful_rate': float(live_min_useful_rate),
         'live_min_saving_ms': float(live_min_saving_ms),
         'live_max_p95_regression_ms': float(live_max_p95_regression_ms) if live_max_p95_regression_ms is not None else None,
+        'live_capture': bool(live_capture),
+        'live_shadow_graph_replay': bool(live_shadow_graph_replay),
+        'live_observation_source': live_observation_source,
+        'live_observation_template_id': live_observation_template_id,
+        'live_observation_trusted': bool(live_observation_trusted),
         'live_shadow_observations_written': int(live_shadow_written),
         'moe_capacity_buckets': moe_capacity_buckets,
         'dispatcher_profile': dispatch_profile,
         'runner_profile': runner_profile,
         'attention_profile': attn_profile,
         'moe_profile': moe_profile,
+        'disable_prefix_caching': bool(disable_prefix_caching),
         'scheduler_profile': scheduler_profile,
     }
 
@@ -621,6 +724,12 @@ def main():
                     help='enable live self-learning admission inside the vLLM cudagraph dispatcher hot path')
     ap.add_argument('--live-admission-observations', default=None,
                     help='optional JSONL observation stream consumed by live admission: template_id, graph_ms, fallback_ms, correct')
+    ap.add_argument('--live-admission-clear-observations', action='store_true',
+                    help='clear --live-admission-observations at the start of configs that write shadow observations')
+    ap.add_argument('--live-admission-trusted-shadow', action='store_true',
+                    help='when paired with runtime_*_shadow configs, label observations as graph_replay_shadow/trusted_graph_replay; strict dispatcher still trusts these positives only if STATICITY_VLLM_TRUST_SHADOW_POSITIVE_OBSERVATIONS=1')
+    ap.add_argument('--live-admission-template-id', choices=['bucket', 'range', 'exact'], default='exact',
+                    help='template_id style for written live observations; exact avoids range/bucket-level over-admission')
     ap.add_argument('--live-admission-explore', action='store_true',
                     help='allow live admission to explore graph templates until min_samples is reached')
     ap.add_argument('--live-admission-min-samples', type=int, default=0,
@@ -633,8 +742,12 @@ def main():
                     help='maximum observed p95 regression tolerated by live admission')
     ap.add_argument('--live-admission-shadow-baseline', action='store_true',
                     help='stream fallback-vs-graph observations from the already-run baseline rows into the live admission file after each request')
+    ap.add_argument('--live-capture', action='store_true',
+                    help='enable same-engine capture machinery; strict live admission still keeps unvalidated templates on fallback by default')
     ap.add_argument('--moe-capacity-buckets', default=None,
                     help='comma-separated MoE expert capacity buckets used by routed-expert metadata profiling')
+    ap.add_argument('--disable-prefix-caching', action='store_true',
+                    help='disable vLLM prefix caching for cleaner cross-engine token-correctness comparisons')
     ap.add_argument('--online-admission-baseline-contains', default='vLLM graph max512 CP',
                     help='baseline config substring used by --online-admission-refresh-output')
     ap.add_argument('--online-admission-candidate-contains', default='Single-engine runtime',
@@ -729,6 +842,8 @@ def main():
         'ours_cp',
         'runtime',
         'runtime_cp',
+        'runtime_shadow',
+        'runtime_cp_shadow',
         'piecewise',
         'full',
         'piecewise_cp',
@@ -803,34 +918,88 @@ def main():
         print(f'Saved {"partial" if partial else "final"} to {out}')
 
     if 'eager' in requested and not args.skip_eager:
-        results.append(run_config(args.model, prompts, lens, '1. Eager no-CP', args.tp_size, args.max_model_len, args.gpu_memory_utilization, eager=True, chunked=False, max_tokens=args.max_tokens, profile_prefix=args.profile_prefix, enable_return_routed_experts=args.enable_return_routed_experts, max_num_seqs=args.max_num_seqs, batch_mode=args.batch_mode))
+        results.append(run_config(args.model, prompts, lens, '1. Eager no-CP', args.tp_size, args.max_model_len, args.gpu_memory_utilization, eager=True, chunked=False, max_tokens=args.max_tokens, profile_prefix=args.profile_prefix, enable_return_routed_experts=args.enable_return_routed_experts, max_num_seqs=args.max_num_seqs, batch_mode=args.batch_mode, disable_prefix_caching=args.disable_prefix_caching))
         save_current(partial=True)
     if 'default' in requested:
-        results.append(run_config(args.model, prompts, lens, f'2. vLLM graph max512 no-CP {args.cudagraph_mode}', args.tp_size, args.max_model_len, args.gpu_memory_utilization, chunked=False, max_tokens=args.max_tokens, profile_prefix=args.profile_prefix, enable_return_routed_experts=args.enable_return_routed_experts, cudagraph_mode=args.cudagraph_mode, max_num_seqs=args.max_num_seqs, batch_mode=args.batch_mode))
+        results.append(run_config(args.model, prompts, lens, f'2. vLLM graph max512 no-CP {args.cudagraph_mode}', args.tp_size, args.max_model_len, args.gpu_memory_utilization, chunked=False, max_tokens=args.max_tokens, profile_prefix=args.profile_prefix, enable_return_routed_experts=args.enable_return_routed_experts, cudagraph_mode=args.cudagraph_mode, max_num_seqs=args.max_num_seqs, batch_mode=args.batch_mode, disable_prefix_caching=args.disable_prefix_caching))
         save_current(partial=True)
     if 'piecewise' in requested:
-        results.append(run_config(args.model, prompts, lens, '2p. vLLM graph max512 no-CP PIECEWISE', args.tp_size, args.max_model_len, args.gpu_memory_utilization, chunked=False, max_tokens=args.max_tokens, profile_prefix=args.profile_prefix, enable_return_routed_experts=args.enable_return_routed_experts, cudagraph_mode='PIECEWISE', max_num_seqs=args.max_num_seqs, batch_mode=args.batch_mode))
+        results.append(run_config(args.model, prompts, lens, '2p. vLLM graph max512 no-CP PIECEWISE', args.tp_size, args.max_model_len, args.gpu_memory_utilization, chunked=False, max_tokens=args.max_tokens, profile_prefix=args.profile_prefix, enable_return_routed_experts=args.enable_return_routed_experts, cudagraph_mode='PIECEWISE', max_num_seqs=args.max_num_seqs, batch_mode=args.batch_mode, disable_prefix_caching=args.disable_prefix_caching))
         save_current(partial=True)
     if 'full' in requested:
-        results.append(run_config(args.model, prompts, lens, '2f. vLLM graph max512 no-CP FULL', args.tp_size, args.max_model_len, args.gpu_memory_utilization, chunked=False, max_tokens=args.max_tokens, profile_prefix=args.profile_prefix, enable_return_routed_experts=args.enable_return_routed_experts, cudagraph_mode='FULL', max_num_seqs=args.max_num_seqs, batch_mode=args.batch_mode))
+        results.append(run_config(args.model, prompts, lens, '2f. vLLM graph max512 no-CP FULL', args.tp_size, args.max_model_len, args.gpu_memory_utilization, chunked=False, max_tokens=args.max_tokens, profile_prefix=args.profile_prefix, enable_return_routed_experts=args.enable_return_routed_experts, cudagraph_mode='FULL', max_num_seqs=args.max_num_seqs, batch_mode=args.batch_mode, disable_prefix_caching=args.disable_prefix_caching))
         save_current(partial=True)
     if 'ours' in requested:
-        results.append(run_config(args.model, prompts, lens, f'3. Ours {args.planner_mode} max{args.our_max} no-CP {args.cudagraph_mode}', args.tp_size, args.max_model_len, args.gpu_memory_utilization, chunked=False, cap_sizes=our_sizes, max_cap=max(our_sizes), max_tokens=args.max_tokens, profile_prefix=args.profile_prefix, enable_return_routed_experts=args.enable_return_routed_experts, cudagraph_mode=args.cudagraph_mode, max_num_seqs=args.max_num_seqs, batch_mode=args.batch_mode))
+        results.append(run_config(args.model, prompts, lens, f'3. Ours {args.planner_mode} max{args.our_max} no-CP {args.cudagraph_mode}', args.tp_size, args.max_model_len, args.gpu_memory_utilization, chunked=False, cap_sizes=our_sizes, max_cap=max(our_sizes), max_tokens=args.max_tokens, profile_prefix=args.profile_prefix, enable_return_routed_experts=args.enable_return_routed_experts, cudagraph_mode=args.cudagraph_mode, max_num_seqs=args.max_num_seqs, batch_mode=args.batch_mode, disable_prefix_caching=args.disable_prefix_caching))
         save_current(partial=True)
     if 'cp' in requested:
-        results.append(run_config(args.model, prompts, lens, f'4. vLLM graph max512 CP {args.cudagraph_mode}', args.tp_size, args.max_model_len, args.gpu_memory_utilization, chunked=True, max_tokens=args.max_tokens, profile_prefix=args.profile_prefix, enable_return_routed_experts=args.enable_return_routed_experts, cudagraph_mode=args.cudagraph_mode, max_num_seqs=args.max_num_seqs, batch_mode=args.batch_mode))
+        results.append(run_config(args.model, prompts, lens, f'4. vLLM graph max512 CP {args.cudagraph_mode}', args.tp_size, args.max_model_len, args.gpu_memory_utilization, chunked=True, max_tokens=args.max_tokens, profile_prefix=args.profile_prefix, enable_return_routed_experts=args.enable_return_routed_experts, cudagraph_mode=args.cudagraph_mode, max_num_seqs=args.max_num_seqs, batch_mode=args.batch_mode, disable_prefix_caching=args.disable_prefix_caching))
         shadow_baseline_rows = results[-1]['per_req']
         for row in shadow_baseline_rows:
             row['config'] = results[-1]['config']
         save_current(partial=True)
     if 'piecewise_cp' in requested:
-        results.append(run_config(args.model, prompts, lens, '4p. vLLM graph max512 CP PIECEWISE', args.tp_size, args.max_model_len, args.gpu_memory_utilization, chunked=True, max_tokens=args.max_tokens, profile_prefix=args.profile_prefix, enable_return_routed_experts=args.enable_return_routed_experts, cudagraph_mode='PIECEWISE', max_num_seqs=args.max_num_seqs, batch_mode=args.batch_mode))
+        results.append(run_config(args.model, prompts, lens, '4p. vLLM graph max512 CP PIECEWISE', args.tp_size, args.max_model_len, args.gpu_memory_utilization, chunked=True, max_tokens=args.max_tokens, profile_prefix=args.profile_prefix, enable_return_routed_experts=args.enable_return_routed_experts, cudagraph_mode='PIECEWISE', max_num_seqs=args.max_num_seqs, batch_mode=args.batch_mode, disable_prefix_caching=args.disable_prefix_caching))
         save_current(partial=True)
     if 'full_cp' in requested:
-        results.append(run_config(args.model, prompts, lens, '4f. vLLM graph max512 CP FULL', args.tp_size, args.max_model_len, args.gpu_memory_utilization, chunked=True, max_tokens=args.max_tokens, profile_prefix=args.profile_prefix, enable_return_routed_experts=args.enable_return_routed_experts, cudagraph_mode='FULL', max_num_seqs=args.max_num_seqs, batch_mode=args.batch_mode))
+        results.append(run_config(args.model, prompts, lens, '4f. vLLM graph max512 CP FULL', args.tp_size, args.max_model_len, args.gpu_memory_utilization, chunked=True, max_tokens=args.max_tokens, profile_prefix=args.profile_prefix, enable_return_routed_experts=args.enable_return_routed_experts, cudagraph_mode='FULL', max_num_seqs=args.max_num_seqs, batch_mode=args.batch_mode, disable_prefix_caching=args.disable_prefix_caching))
         save_current(partial=True)
     if 'ours_cp' in requested:
-        results.append(run_config(args.model, prompts, lens, f'5. Ours {args.planner_mode} max{args.our_max} CP {args.cudagraph_mode}', args.tp_size, args.max_model_len, args.gpu_memory_utilization, chunked=True, cap_sizes=our_sizes, max_cap=max(our_sizes), max_tokens=args.max_tokens, profile_prefix=args.profile_prefix, enable_return_routed_experts=args.enable_return_routed_experts, cudagraph_mode=args.cudagraph_mode, max_num_seqs=args.max_num_seqs, batch_mode=args.batch_mode))
+        results.append(run_config(args.model, prompts, lens, f'5. Ours {args.planner_mode} max{args.our_max} CP {args.cudagraph_mode}', args.tp_size, args.max_model_len, args.gpu_memory_utilization, chunked=True, cap_sizes=our_sizes, max_cap=max(our_sizes), max_tokens=args.max_tokens, profile_prefix=args.profile_prefix, enable_return_routed_experts=args.enable_return_routed_experts, cudagraph_mode=args.cudagraph_mode, max_num_seqs=args.max_num_seqs, batch_mode=args.batch_mode, disable_prefix_caching=args.disable_prefix_caching))
+        save_current(partial=True)
+    if 'runtime_shadow' in requested:
+        if not args.runtime_policy:
+            raise ValueError('--runtime-policy is required when --configs includes runtime_shadow')
+        baseline_rows = shadow_baseline_rows or (results[0]['per_req'] if results else None)
+        if baseline_rows is None:
+            raise ValueError('runtime_shadow requires a previously run baseline config, usually cp')
+        results.append(run_config(
+            args.model,
+            prompts,
+            lens,
+            f'6s. Shadow-engine runtime {args.planner_mode} max{args.our_max} no-CP',
+            args.tp_size,
+            args.max_model_len,
+            args.gpu_memory_utilization,
+            chunked=False,
+            cap_sizes=runtime_sizes,
+            max_cap=max(runtime_sizes),
+            max_tokens=args.max_tokens,
+            profile_prefix=args.profile_prefix,
+            enable_return_routed_experts=args.enable_return_routed_experts,
+            runtime_policy=args.runtime_policy,
+            runtime_base_capture_size=args.runtime_base_capture_size,
+            cudagraph_mode=args.cudagraph_mode,
+            max_num_seqs=args.max_num_seqs,
+            template_scheduler=args.template_scheduler,
+            template_scheduler_max_wait_ms=args.template_scheduler_max_wait_ms,
+            template_scheduler_max_scan=args.template_scheduler_max_scan,
+            batch_mode=args.batch_mode,
+            fixed_metadata_arena=args.fixed_metadata_arena,
+            fixed_metadata_arena_max_reqs=args.fixed_metadata_arena_max_reqs,
+            fixed_metadata_arena_min_tokens=args.fixed_metadata_arena_min_tokens,
+            fixed_metadata_arena_max_tokens=args.fixed_metadata_arena_max_tokens,
+            full_key_collapse=args.full_key_collapse,
+            live_admission=True,
+            live_observations=args.live_admission_observations,
+            live_explore=True,
+            live_min_samples=args.live_admission_min_samples,
+            live_min_useful_rate=args.live_admission_min_useful_rate,
+            live_min_saving_ms=args.live_admission_min_saving_ms,
+            live_max_p95_regression_ms=args.live_admission_max_p95_regression_ms,
+            live_capture=True,
+            live_shadow_graph_replay=True,
+            live_observations_clear=args.live_admission_clear_observations,
+            live_observation_source=(
+                'graph_replay_shadow'
+                if args.live_admission_trusted_shadow else 'offline_shadow_baseline'
+            ),
+            live_observation_template_id=args.live_admission_template_id,
+            live_observation_trusted=args.live_admission_trusted_shadow,
+            live_shadow_rows=baseline_rows,
+            moe_capacity_buckets=args.moe_capacity_buckets,
+            disable_prefix_caching=args.disable_prefix_caching,
+        ))
         save_current(partial=True)
     if 'runtime' in requested:
         if not args.runtime_policy:
@@ -869,8 +1038,65 @@ def main():
             live_min_useful_rate=args.live_admission_min_useful_rate,
             live_min_saving_ms=args.live_admission_min_saving_ms,
             live_max_p95_regression_ms=args.live_admission_max_p95_regression_ms,
+            live_capture=args.live_capture,
+            live_observation_template_id=args.live_admission_template_id,
             live_shadow_rows=shadow_baseline_rows if args.live_admission_shadow_baseline else None,
             moe_capacity_buckets=args.moe_capacity_buckets,
+            disable_prefix_caching=args.disable_prefix_caching,
+        ))
+        save_current(partial=True)
+    if 'runtime_cp_shadow' in requested:
+        if not args.runtime_policy:
+            raise ValueError('--runtime-policy is required when --configs includes runtime_cp_shadow')
+        baseline_rows = shadow_baseline_rows or (results[0]['per_req'] if results else None)
+        if baseline_rows is None:
+            raise ValueError('runtime_cp_shadow requires a previously run baseline config, usually cp')
+        results.append(run_config(
+            args.model,
+            prompts,
+            lens,
+            f'7s. Shadow-engine runtime {args.planner_mode} max{args.our_max} CP',
+            args.tp_size,
+            args.max_model_len,
+            args.gpu_memory_utilization,
+            chunked=True,
+            cap_sizes=runtime_sizes,
+            max_cap=max(runtime_sizes),
+            max_tokens=args.max_tokens,
+            profile_prefix=args.profile_prefix,
+            enable_return_routed_experts=args.enable_return_routed_experts,
+            runtime_policy=args.runtime_policy,
+            runtime_base_capture_size=args.runtime_base_capture_size,
+            cudagraph_mode=args.cudagraph_mode,
+            max_num_seqs=args.max_num_seqs,
+            template_scheduler=args.template_scheduler,
+            template_scheduler_max_wait_ms=args.template_scheduler_max_wait_ms,
+            template_scheduler_max_scan=args.template_scheduler_max_scan,
+            batch_mode=args.batch_mode,
+            fixed_metadata_arena=args.fixed_metadata_arena,
+            fixed_metadata_arena_max_reqs=args.fixed_metadata_arena_max_reqs,
+            fixed_metadata_arena_min_tokens=args.fixed_metadata_arena_min_tokens,
+            fixed_metadata_arena_max_tokens=args.fixed_metadata_arena_max_tokens,
+            full_key_collapse=args.full_key_collapse,
+            live_admission=True,
+            live_observations=args.live_admission_observations,
+            live_explore=True,
+            live_min_samples=args.live_admission_min_samples,
+            live_min_useful_rate=args.live_admission_min_useful_rate,
+            live_min_saving_ms=args.live_admission_min_saving_ms,
+            live_max_p95_regression_ms=args.live_admission_max_p95_regression_ms,
+            live_capture=True,
+            live_shadow_graph_replay=True,
+            live_observations_clear=args.live_admission_clear_observations,
+            live_observation_source=(
+                'graph_replay_shadow'
+                if args.live_admission_trusted_shadow else 'offline_shadow_baseline'
+            ),
+            live_observation_template_id=args.live_admission_template_id,
+            live_observation_trusted=args.live_admission_trusted_shadow,
+            live_shadow_rows=baseline_rows,
+            moe_capacity_buckets=args.moe_capacity_buckets,
+            disable_prefix_caching=args.disable_prefix_caching,
         ))
         save_current(partial=True)
     if 'runtime_cp' in requested:
@@ -910,8 +1136,10 @@ def main():
             live_min_useful_rate=args.live_admission_min_useful_rate,
             live_min_saving_ms=args.live_admission_min_saving_ms,
             live_max_p95_regression_ms=args.live_admission_max_p95_regression_ms,
+            live_capture=args.live_capture,
             live_shadow_rows=shadow_baseline_rows if args.live_admission_shadow_baseline else None,
             moe_capacity_buckets=args.moe_capacity_buckets,
+            disable_prefix_caching=args.disable_prefix_caching,
         ))
         save_current(partial=True)
     if 'runtime_piecewise_cp' in requested:
@@ -951,8 +1179,10 @@ def main():
             live_min_useful_rate=args.live_admission_min_useful_rate,
             live_min_saving_ms=args.live_admission_min_saving_ms,
             live_max_p95_regression_ms=args.live_admission_max_p95_regression_ms,
+            live_capture=args.live_capture,
             live_shadow_rows=shadow_baseline_rows if args.live_admission_shadow_baseline else None,
             moe_capacity_buckets=args.moe_capacity_buckets,
+            disable_prefix_caching=args.disable_prefix_caching,
         ))
         save_current(partial=True)
     if 'runtime_full_cp' in requested:
@@ -992,8 +1222,10 @@ def main():
             live_min_useful_rate=args.live_admission_min_useful_rate,
             live_min_saving_ms=args.live_admission_min_saving_ms,
             live_max_p95_regression_ms=args.live_admission_max_p95_regression_ms,
+            live_capture=args.live_capture,
             live_shadow_rows=shadow_baseline_rows if args.live_admission_shadow_baseline else None,
             moe_capacity_buckets=args.moe_capacity_buckets,
+            disable_prefix_caching=args.disable_prefix_caching,
         ))
         save_current(partial=True)
 

@@ -21,6 +21,7 @@ def make_exploration_policy(
     live_min_useful_rate: float = 0.67,
     live_min_saving_ms: float = 0.5,
     live_max_p95_regression_ms: float | None = 5.0,
+    live_capture: bool = False,
 ) -> dict[str, Any]:
     """Build a fail-closed GraphAdmit exploration policy.
 
@@ -111,8 +112,22 @@ def make_exploration_policy(
                     else float(live_max_p95_regression_ms)
                 ),
             },
+            "live_capture": {
+                "enabled": bool(live_capture),
+                "mode": "same_engine_lazy_piecewise_capture",
+                "scope": "piecewise_prefill_templates",
+                "fallback": default_action,
+                "note": (
+                    "FULL-graph templates remain init-time captured; PIECEWISE "
+                    "extra templates may be captured on first admitted/explored "
+                    "runtime hit and later controlled by live admission."
+                ),
+            },
             "residual_capture": {
-                "mode": "broad_online_exploration",
+                "mode": (
+                    "same_engine_lazy_capture"
+                    if live_capture else "broad_online_exploration"
+                ),
                 "bucket_preset": bucket_preset,
                 "template_buckets": buckets,
                 "extra_capture_sizes": [
